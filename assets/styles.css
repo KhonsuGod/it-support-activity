@@ -15,6 +15,23 @@
   --ink: #101828;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f141b;
+  --surface: #18212c;
+  --surface-2: #111923;
+  --line: #2b3746;
+  --line-strong: #405064;
+  --text: #e5edf6;
+  --muted: #98a7ba;
+  --primary: #3d8fcc;
+  --primary-dark: #2c76ad;
+  --success: #4db981;
+  --warning: #e5a443;
+  --danger: #ef6673;
+  --ink: #f4f7fb;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -26,6 +43,10 @@ body {
   color: var(--text);
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
+}
+
+.hidden {
+  display: none !important;
 }
 
 button,
@@ -52,6 +73,52 @@ button {
   color: #ffffff;
   border-bottom: 1px solid #0d1621;
   box-shadow: 0 10px 26px rgba(18, 29, 43, 0.12);
+}
+
+.login-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(15, 94, 156, 0.08), transparent 42%), var(--bg);
+}
+
+.login-card {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 24px;
+  box-shadow: 0 24px 70px rgba(16, 24, 40, 0.15);
+}
+
+.login-card .brand-mark {
+  margin-bottom: 18px;
+}
+
+.login-card h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+}
+
+.login-card p {
+  margin: 8px 0 20px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.login-card .primary-button {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.login-card small {
+  display: block;
+  min-height: 18px;
+  margin-top: 12px;
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .brand-block,
@@ -125,6 +192,7 @@ button {
 .header-actions {
   justify-content: flex-end;
   gap: 10px;
+  position: relative;
 }
 
 .icon-button {
@@ -137,6 +205,44 @@ button {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   font-size: 18px;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 210px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px;
+  box-shadow: 0 18px 48px rgba(16, 24, 40, 0.18);
+}
+
+.menu-panel strong {
+  display: block;
+  padding: 8px 9px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.menu-item {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  padding: 0 9px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.menu-item:hover {
+  background: var(--surface-2);
 }
 
 .sync-state {
@@ -282,6 +388,11 @@ button {
   background: #f9fbfd;
 }
 
+:root[data-theme="dark"] .night-insights div,
+:root[data-theme="dark"] .report-summary div {
+  background: #111923;
+}
+
 .night-insights span {
   display: block;
   color: var(--muted);
@@ -298,6 +409,12 @@ button {
 
 .activity-form {
   padding: 18px;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .form-grid {
@@ -339,6 +456,15 @@ textarea {
   text-transform: none;
 }
 
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] .secondary-button,
+:root[data-theme="dark"] .row-actions button {
+  background: #111923;
+  color: var(--text);
+}
+
 textarea {
   resize: vertical;
   line-height: 1.45;
@@ -347,6 +473,29 @@ textarea {
 input[readonly] {
   background: var(--surface-2);
   color: #344054;
+}
+
+:root[data-theme="dark"] input[readonly] {
+  color: #c8d4e3;
+}
+
+.advanced-fields {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.advanced-fields summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.advanced-fields .form-grid {
+  margin-top: 14px;
 }
 
 input:focus,
@@ -411,6 +560,10 @@ textarea:focus {
   background: #ffffff;
 }
 
+:root[data-theme="dark"] .table-wrap {
+  background: var(--surface);
+}
+
 .data-table {
   width: 100%;
   min-width: 1280px;
@@ -436,12 +589,25 @@ textarea:focus {
   white-space: nowrap;
 }
 
+:root[data-theme="dark"] .data-table th {
+  background: #233142;
+  color: var(--ink);
+}
+
 .data-table td {
   color: #344054;
 }
 
+:root[data-theme="dark"] .data-table td {
+  color: #d7e0ec;
+}
+
 .data-table tr:hover td {
   background: #f6f9fc;
+}
+
+:root[data-theme="dark"] .data-table tr:hover td {
+  background: #202b39;
 }
 
 .status-badge {
@@ -631,7 +797,8 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .form-grid {
+  .form-grid,
+  .quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -665,6 +832,7 @@ textarea:focus {
   .metric-grid.compact,
   .analytics-grid,
   .form-grid,
+  .quick-grid,
   .filter-bar,
   .report-summary {
     grid-template-columns: 1fr;

@@ -1,7 +1,10 @@
 const { callScriptPost, handleError, pickFilters, readBody, sendJson } = require("./_google");
+const { requireAuth } = require("./_auth");
 
 module.exports = async function handler(req, res) {
   try {
+    requireAuth(req);
+
     if (req.method === "GET") {
       const payload = await callScriptPost("activities", { filters: pickFilters(req.query || {}) });
       sendJson(res, 200, payload);

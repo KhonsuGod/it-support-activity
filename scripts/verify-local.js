@@ -45,6 +45,29 @@ async function get(action) {
   assert.match(script, /LockService\.getScriptLock/);
   assert.match(script, /getNextActivityRow/);
 
+  process.env.APP_LOGIN_PASSWORD = "test-login-password";
+  process.env.APP_SESSION_SECRET = "test-session-secret";
+  const auth = require("../api/_auth");
+  assert.equal(auth.validatePassword("test-login-password"), true);
+  assert.equal(auth.validatePassword("wrong"), false);
+  assert.equal(auth.verifyToken(auth.createToken()), true);
+  assert.equal(auth.verifyToken("bad.token"), false);
+
+  const activitiesHandler = require("../api/activities");
+  const unauthorized = await new Promise((resolve) => {
+    const req = { method: "GET", query: {}, headers: {}, on() {} };
+    const res = {
+      statusCode: 200,
+      setHeader() {},
+      end(chunk) {
+        resolve({ statusCode: this.statusCode, payload: JSON.parse(chunk) });
+      }
+    };
+    activitiesHandler(req, res);
+  });
+  assert.equal(unauthorized.statusCode, 401);
+  assert.equal(unauthorized.payload.success, false);
+
   assert.equal(durationBetween("22:30", "22:35"), "00:05");
   assert.equal(durationBetween("22:35", "22:50"), "00:15");
   assert.equal(durationBetween("23:50", "00:15"), "00:25");

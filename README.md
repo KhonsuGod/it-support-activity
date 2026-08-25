@@ -39,9 +39,13 @@ Buat `.env` lokal atau set di Vercel Project Settings:
 ```bash
 APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 APPS_SCRIPT_API_SECRET=replace-with-a-long-random-secret
+APP_LOGIN_PASSWORD=replace-with-internal-login-password
+APP_SESSION_SECRET=replace-with-a-different-long-random-secret
 ```
 
 Jangan gunakan prefix `VITE_` atau `NEXT_PUBLIC_` untuk secret.
+
+`APP_LOGIN_PASSWORD` dipakai untuk login awal sebelum user masuk dashboard. `APP_SESSION_SECRET` dipakai untuk menandatangani session token browser.
 
 ## Apps Script Setup
 
@@ -106,6 +110,8 @@ Sheet `Activities` harus menggunakan header berikut dan tidak diubah sembarangan
 Vercel API:
 
 - `GET /api/status`
+- `GET /api/auth`
+- `POST /api/auth`
 - `GET /api/staff`
 - `GET /api/master`
 - `GET /api/departments`
@@ -140,6 +146,7 @@ Filter read activities:
 ## Security Notes
 
 - Write endpoint Apps Script menolak request tanpa `APPS_SCRIPT_API_SECRET`.
+- Vercel endpoint `/api/activities` menolak request tanpa login session token.
 - Secret tidak ada di frontend bundle.
 - `.env`, `.vercel`, `.clasp.json`, dan auth lokal di-ignore.
 - Activity text dirender dengan `textContent`, bukan `innerHTML`.

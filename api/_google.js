@@ -83,7 +83,7 @@ function pickFilters(query) {
 }
 
 function handleError(res, error) {
-  sendJson(res, 500, { success: false, error: error.message || "Unexpected server error" });
+  sendJson(res, error.statusCode || 500, { success: false, error: error.message || "Unexpected server error" });
 }
 
 module.exports = {

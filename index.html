@@ -14,7 +14,18 @@
   <script src="assets/app.js" defer></script>
 </head>
 <body>
-  <header class="app-header no-print">
+  <section class="login-screen" id="login-screen">
+    <form class="login-card" id="login-form" autocomplete="off">
+      <div class="brand-mark">IT</div>
+      <h1>IT Support Activity</h1>
+      <p>Masuk dulu sebelum membuka dashboard operasional.</p>
+      <label>Access Password <span>*</span><input id="login-password" name="password" type="password" required autofocus></label>
+      <button class="primary-button" type="submit" id="login-button">Login</button>
+      <small id="login-error"></small>
+    </form>
+  </section>
+
+  <header class="app-header no-print app-frame hidden">
     <div class="brand-block">
       <div class="brand-mark">IT</div>
       <div>
@@ -22,7 +33,7 @@
         <p>Manufacturing support operations</p>
       </div>
     </div>
-    <nav class="main-nav" aria-label="Main navigation">
+    <nav class="main-nav" id="main-nav" aria-label="Main navigation">
       <button class="nav-tab is-active" data-view="dashboard">Dashboard</button>
       <button class="nav-tab" data-view="add">Add Activity</button>
       <button class="nav-tab" data-view="activities">Activities</button>
@@ -30,11 +41,18 @@
     </nav>
     <div class="header-actions">
       <button class="icon-button" id="refresh-button" title="Refresh data" type="button" aria-label="Refresh data">↻</button>
+      <button class="icon-button menu-toggle" id="menu-toggle" title="Menu" type="button" aria-label="Open menu">☰</button>
       <span class="sync-state" id="sync-state">Loading</span>
+      <div class="menu-panel hidden" id="menu-panel">
+        <strong>Menu</strong>
+        <button type="button" class="menu-item" id="theme-light">White Theme</button>
+        <button type="button" class="menu-item" id="theme-dark">Dark Theme</button>
+        <button type="button" class="menu-item" id="logout-button">Logout</button>
+      </div>
     </div>
   </header>
 
-  <main class="app-shell">
+  <main class="app-shell app-frame hidden">
     <section class="view is-active" id="view-dashboard" aria-labelledby="dashboard-title">
       <div class="section-heading">
         <div>
@@ -105,9 +123,9 @@
           <p>Input aktivitas harian IT Support.</p>
         </div>
       </div>
-      <form id="activity-form" class="activity-form" autocomplete="off">
+      <form id="activity-form" class="activity-form simple-form" autocomplete="off">
         <input type="hidden" id="activity-id">
-        <div class="form-grid">
+        <div class="quick-grid">
           <label>Date <span>*</span><input id="date" name="date" type="date" required></label>
           <label>IT Staff <span>*</span><select id="itStaff" name="itStaff" required></select></label>
           <label>Shift <span>*</span><select id="shift" name="shift" required></select></label>
@@ -115,26 +133,31 @@
           <label>Department <span>*</span><select id="department" name="department" required></select></label>
           <label>Area / Sub Department <select id="area" name="area"></select></label>
           <label>User <input id="user" name="user" type="text" maxlength="120"></label>
-          <label>Location <input id="location" name="location" type="text" maxlength="160"></label>
           <label>Asset Name <input id="assetName" name="assetName" type="text" maxlength="160"></label>
-          <label>Device Type <select id="deviceType" name="deviceType"></select></label>
           <label>Category <select id="category" name="category"></select></label>
-          <label>Activity Type <span>*</span><select id="activityType" name="activityType" required></select></label>
-          <label>Support Mode <span>*</span><select id="supportMode" name="supportMode" required></select></label>
-          <label>Production Impact <select id="productionImpact" name="productionImpact"></select></label>
-          <label>Priority <select id="priority" name="priority"></select></label>
           <label>Status <span>*</span><select id="status" name="status" required></select></label>
-          <label>Report Time <input id="reportTime" name="reportTime" type="time"></label>
-          <label>Start Time <input id="startTime" name="startTime" type="time"></label>
-          <label>Finish Time <input id="finishTime" name="finishTime" type="time"></label>
-          <label>Response Time <input id="responseTime" name="responseTime" type="text" readonly></label>
-          <label>Resolution Time <input id="resolutionTime" name="resolutionTime" type="text" readonly></label>
-          <label>Root Cause Category <select id="rootCauseCategory" name="rootCauseCategory"></select></label>
         </div>
         <label class="span-2">Problem <span>*</span><textarea id="problem" name="problem" rows="4" required placeholder="Printer Zebra ribbon tersangkut."></textarea></label>
         <label class="span-2">Action Taken <span>*</span><textarea id="actionTaken" name="actionTaken" rows="4" required placeholder="Melakukan pengecekan dan pemasangan ulang ribbon hingga printer dapat digunakan kembali."></textarea></label>
-        <label class="span-2">Root Cause Detail <textarea id="rootCauseDetail" name="rootCauseDetail" rows="3"></textarea></label>
-        <label class="span-2">Notes <textarea id="notes" name="notes" rows="3"></textarea></label>
+        <details class="advanced-fields">
+          <summary>Advanced details</summary>
+          <div class="form-grid">
+            <label>Location <input id="location" name="location" type="text" maxlength="160"></label>
+            <label>Device Type <select id="deviceType" name="deviceType"></select></label>
+            <label>Activity Type <span>*</span><select id="activityType" name="activityType" required></select></label>
+            <label>Support Mode <span>*</span><select id="supportMode" name="supportMode" required></select></label>
+            <label>Production Impact <select id="productionImpact" name="productionImpact"></select></label>
+            <label>Priority <select id="priority" name="priority"></select></label>
+            <label>Report Time <input id="reportTime" name="reportTime" type="time"></label>
+            <label>Start Time <input id="startTime" name="startTime" type="time"></label>
+            <label>Finish Time <input id="finishTime" name="finishTime" type="time"></label>
+            <label>Response Time <input id="responseTime" name="responseTime" type="text" readonly></label>
+            <label>Resolution Time <input id="resolutionTime" name="resolutionTime" type="text" readonly></label>
+            <label>Root Cause Category <select id="rootCauseCategory" name="rootCauseCategory"></select></label>
+          </div>
+          <label class="span-2">Root Cause Detail <textarea id="rootCauseDetail" name="rootCauseDetail" rows="3"></textarea></label>
+          <label class="span-2">Notes <textarea id="notes" name="notes" rows="3"></textarea></label>
+        </details>
         <div class="form-actions">
           <button class="secondary-button" type="button" id="cancel-edit-button">Cancel</button>
           <button class="primary-button" type="submit" id="submit-button">Save Activity</button>

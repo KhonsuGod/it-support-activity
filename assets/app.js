@@ -3,6 +3,7 @@
 
   const TZ = "Asia/Jakarta";
   const API = {
+    auth: "/api/auth",
     status: "/api/status",
     staff: "/api/staff",
     master: "/api/master",
@@ -34,6 +35,7 @@
     activityFilters: loadFilterPreference("activityFilters"),
     reportFilters: loadFilterPreference("reportFilters"),
     dashboardFilters: loadFilterPreference("dashboardFilters"),
+    authToken: localStorage.getItem("itActivityAuthToken") || "",
     charts: {},
     pendingDeleteId: null
   };
@@ -44,11 +46,12 @@
 
   async function init() {
     cacheElements();
+    applyTheme(localStorage.getItem("theme") || "light");
     bindEvents();
     setDefaultDate();
     buildFilterBar("activity-filter-bar", state.activityFilters, renderAll, "activityFilters");
     buildFilterBar("report-filter-bar", state.reportFilters, renderAll, "reportFilters");
-    await boot();
+    await restoreSession();
   }
 
   function cacheElements() {
@@ -57,13 +60,25 @@
       "activity-form", "activity-id", "submit-button", "cancel-edit-button", "department", "area", "itStaff", "plant",
       "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "activity-table-body", "empty-state",
       "report-table-body", "report-summary", "report-period", "toast", "confirm-dialog", "confirm-cancel", "confirm-ok",
-      "dashboard-date-from", "dashboard-date-to", "dashboard-reset", "export-button", "print-button"
+      "dashboard-date-from", "dashboard-date-to", "dashboard-reset", "export-button", "print-button", "login-screen",
+      "login-form", "login-password", "login-button", "login-error", "menu-toggle", "menu-panel", "theme-light",
+      "theme-dark", "logout-button"
     ].forEach((id) => {
       els[id] = document.getElementById(id);
     });
   }
 
   function bindEvents() {
+    els["login-form"].addEventListener("submit", login);
+    els["menu-toggle"].addEventListener("click", toggleMenu);
+    els["theme-light"].addEventListener("click", () => setThemeFromMenu("light"));
+    els["theme-dark"].addEventListener("click", () => setThemeFromMenu("dark"));
+    els["logout-button"].addEventListener("click", logout);
+    document.addEventListener("click", (event) => {
+      if (!els["menu-panel"].contains(event.target) && event.target !== els["menu-toggle"]) {
+        els["menu-panel"].classList.add("hidden");
+      }
+    });
     document.querySelectorAll(".nav-tab").forEach((button) => {
       button.addEventListener("click", () => showView(button.dataset.view));
     });
@@ -84,6 +99,88 @@
     els["print-button"].addEventListener("click", () => window.print());
   }
 
+  async function restoreSession() {
+    if (!state.authToken) {
+      showLogin();
+      return;
+    }
+    try {
+      const response = await fetch(API.auth, { headers: authHeaders({ Accept: "application/json" }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Invalid session");
+      showApp();
+      await boot();
+    } catch (error) {
+      logout(false);
+    }
+  }
+
+  async function login(event) {
+    event.preventDefault();
+    els["login-error"].textContent = "";
+    els["login-button"].disabled = true;
+    els["login-button"].textContent = "Checking...";
+    try {
+      const response = await fetch(API.auth, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ password: els["login-password"].value })
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Login failed");
+      state.authToken = payload.data.token;
+      localStorage.setItem("itActivityAuthToken", state.authToken);
+      els["login-password"].value = "";
+      showApp();
+      await boot();
+    } catch (error) {
+      els["login-error"].textContent = error.message;
+    } finally {
+      els["login-button"].disabled = false;
+      els["login-button"].textContent = "Login";
+    }
+  }
+
+  function logout(showMessage) {
+    state.authToken = "";
+    localStorage.removeItem("itActivityAuthToken");
+    state.activities = [];
+    renderAll();
+    showLogin();
+    if (showMessage !== false) showToast("Logout berhasil.");
+  }
+
+  function showLogin() {
+    els["login-screen"].classList.remove("hidden");
+    document.querySelectorAll(".app-frame").forEach((node) => node.classList.add("hidden"));
+    setSyncState("Login");
+  }
+
+  function showApp() {
+    els["login-screen"].classList.add("hidden");
+    document.querySelectorAll(".app-frame").forEach((node) => node.classList.remove("hidden"));
+  }
+
+  function authHeaders(headers) {
+    const output = Object.assign({}, headers || {});
+    if (state.authToken) output.Authorization = "Bearer " + state.authToken;
+    return output;
+  }
+
+  function toggleMenu() {
+    els["menu-panel"].classList.toggle("hidden");
+  }
+
+  function setThemeFromMenu(theme) {
+    applyTheme(theme);
+    localStorage.setItem("theme", theme);
+    els["menu-panel"].classList.add("hidden");
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
+  }
+
   async function boot() {
     setSyncState("Loading");
     try {
@@ -96,6 +193,7 @@
       state.master = normalizeMaster(master || {});
       state.departments = departments || {};
       populateFormOptions();
+      applyDefaultFormValues();
       buildFilterBar("activity-filter-bar", state.activityFilters, renderAll, "activityFilters");
       buildFilterBar("report-filter-bar", state.reportFilters, renderAll, "reportFilters");
       rebuildAreaFilters();
@@ -128,7 +226,11 @@
 
   async function fetchJson(url, publicAction) {
     try {
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
+      const response = await fetch(url, { headers: authHeaders({ Accept: "application/json" }) });
+      if (response.status === 401) {
+        logout(false);
+        throw new Error("Session login habis. Silakan login lagi.");
+      }
       if (!response.ok) throw new Error("HTTP " + response.status);
       const payload = await response.json();
       if (!payload.success) throw new Error(payload.error || "API request failed");
@@ -172,6 +274,21 @@
       if (el) populateSelect(el, state.master[key] || [], key === "deviceType" || key === "category" || key === "rootCauseCategory" || key === "productionImpact" || key === "priority" ? "Optional" : "Select");
     });
     populateAreaSelect(els.department.value, "");
+  }
+
+  function applyDefaultFormValues() {
+    setSelectDefault("status", "Resolved");
+    setSelectDefault("activityType", "Incident");
+    setSelectDefault("supportMode", "On-Site");
+    setSelectDefault("productionImpact", "No Impact");
+    setSelectDefault("priority", "Medium");
+  }
+
+  function setSelectDefault(id, preferred) {
+    const select = document.getElementById(id);
+    if (!select || select.value) return;
+    const options = Array.from(select.options).map((option) => option.value);
+    select.value = options.includes(preferred) ? preferred : options.find(Boolean) || "";
   }
 
   function populateSelect(select, options, placeholder) {
@@ -226,7 +343,7 @@
     try {
       const response = await fetch(API.activities, {
         method,
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
         body: JSON.stringify(id ? Object.assign({ id }, activity) : activity)
       });
       const payload = await response.json();
@@ -260,6 +377,7 @@
     document.getElementById("form-title").textContent = "Add Activity";
     setDefaultDate();
     populateAreaSelect("", "");
+    applyDefaultFormValues();
     updateDurationPreview();
   }
 
@@ -295,7 +413,7 @@
     try {
       const response = await fetch(API.activities + "?id=" + encodeURIComponent(id), {
         method: "DELETE",
-        headers: { Accept: "application/json" }
+        headers: authHeaders({ Accept: "application/json" })
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error || "Delete failed");
