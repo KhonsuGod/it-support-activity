@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "npx vercel dev",
+    "dev:local": "node scripts/dev-server.js",
     "check": "node --check assets/app.js && node --check api/_auth.js && node --check api/_google.js && node --check api/auth.js && node --check api/status.js && node --check api/staff.js && node --check api/master.js && node --check api/departments.js && node --check api/activities.js && node --check apps-script/Code.js",
     "test": "node scripts/verify-local.js"
   }
