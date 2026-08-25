@@ -13,6 +13,7 @@ const mime = {
 };
 const apiHandlers = {
   "/api/auth": require("../api/auth"),
+  "/api/users": require("../api/users"),
   "/api/status": require("../api/status"),
   "/api/staff": require("../api/staff"),
   "/api/master": require("../api/master"),

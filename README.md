@@ -39,13 +39,31 @@ Buat `.env` lokal atau set di Vercel Project Settings:
 ```bash
 APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 APPS_SCRIPT_API_SECRET=replace-with-a-long-random-secret
-APP_LOGIN_PASSWORD=replace-with-internal-login-password
 APP_SESSION_SECRET=replace-with-a-different-long-random-secret
+DATABASE_URL=mysql://user:password@host:3306/database_name
 ```
 
 Jangan gunakan prefix `VITE_` atau `NEXT_PUBLIC_` untuk secret.
 
-`APP_LOGIN_PASSWORD` dipakai untuk login awal sebelum user masuk dashboard. `APP_SESSION_SECRET` dipakai untuk menandatangani session token browser.
+`DATABASE_URL` bisa memakai MySQL atau MariaDB. `APP_SESSION_SECRET` dipakai untuk menandatangani session token browser.
+
+## User Database
+
+Schema user ada di `db/schema.sql`. User login disimpan di tabel `users`, password disimpan sebagai hash PBKDF2.
+
+Seed user awal dilakukan lewat environment variable agar password plaintext tidak masuk repository:
+
+```bash
+SEED_USERS_JSON='[
+  {"username":"jumali","displayName":"Jumali","password":"...","role":"staff"},
+  {"username":"davi","displayName":"Davi","password":"...","role":"staff"},
+  {"username":"naufal","displayName":"Naufal","password":"...","role":"staff"},
+  {"username":"henri","displayName":"Henri","password":"...","role":"staff"},
+  {"username":"haris","displayName":"Haris","password":"...","role":"admin"}
+]' npm run db:seed
+```
+
+`haris` diset sebagai `admin` karena PIC. Admin bisa membuat user baru, mengubah role, menonaktifkan user, dan reset password staff dari halaman Admin.
 
 ## Apps Script Setup
 
@@ -112,6 +130,9 @@ Vercel API:
 - `GET /api/status`
 - `GET /api/auth`
 - `POST /api/auth`
+- `GET /api/users` admin only
+- `POST /api/users` admin only
+- `PUT /api/users` admin only
 - `GET /api/staff`
 - `GET /api/master`
 - `GET /api/departments`
@@ -140,6 +161,8 @@ Filter read activities:
 2. Set environment variables:
    - `APPS_SCRIPT_URL`
    - `APPS_SCRIPT_API_SECRET`
+   - `APP_SESSION_SECRET`
+   - `DATABASE_URL`
 3. Deploy.
 4. Test `/api/status`, `/api/staff`, `/api/master`, `/api/departments`, dan `/api/activities`.
 

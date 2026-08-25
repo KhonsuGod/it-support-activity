@@ -4,6 +4,7 @@
   const TZ = "Asia/Jakarta";
   const API = {
     auth: "/api/auth",
+    users: "/api/users",
     status: "/api/status",
     staff: "/api/staff",
     master: "/api/master",
@@ -36,6 +37,8 @@
     reportFilters: loadFilterPreference("reportFilters"),
     dashboardFilters: loadFilterPreference("dashboardFilters"),
     authToken: localStorage.getItem("itActivityAuthToken") || "",
+    currentUser: loadFilterPreference("itActivityCurrentUser"),
+    adminUsers: [],
     charts: {},
     pendingDeleteId: null
   };
@@ -61,8 +64,10 @@
       "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "activity-table-body", "empty-state",
       "report-table-body", "report-summary", "report-period", "toast", "confirm-dialog", "confirm-cancel", "confirm-ok",
       "dashboard-date-from", "dashboard-date-to", "dashboard-reset", "export-button", "print-button", "login-screen",
-      "login-form", "login-password", "login-button", "login-error", "menu-toggle", "menu-panel", "theme-light",
-      "theme-dark", "logout-button"
+      "login-form", "login-username", "login-password", "login-button", "login-error", "menu-toggle", "menu-panel",
+      "theme-light", "theme-dark", "logout-button", "admin-tab", "admin-user-form", "admin-user-id", "admin-username",
+      "admin-display-name", "admin-role", "admin-password", "admin-is-active", "admin-reset-form", "admin-save-user",
+      "admin-users-body"
     ].forEach((id) => {
       els[id] = document.getElementById(id);
     });
@@ -74,6 +79,8 @@
     els["theme-light"].addEventListener("click", () => setThemeFromMenu("light"));
     els["theme-dark"].addEventListener("click", () => setThemeFromMenu("dark"));
     els["logout-button"].addEventListener("click", logout);
+    els["admin-user-form"].addEventListener("submit", saveUser);
+    els["admin-reset-form"].addEventListener("click", resetAdminForm);
     document.addEventListener("click", (event) => {
       if (!els["menu-panel"].contains(event.target) && event.target !== els["menu-toggle"]) {
         els["menu-panel"].classList.add("hidden");
@@ -108,8 +115,11 @@
       const response = await fetch(API.auth, { headers: authHeaders({ Accept: "application/json" }) });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error || "Invalid session");
+      state.currentUser = payload.data.user || {};
+      localStorage.setItem("itActivityCurrentUser", JSON.stringify(state.currentUser));
       showApp();
       await boot();
+      showView(defaultView());
     } catch (error) {
       logout(false);
     }
@@ -124,15 +134,19 @@
       const response = await fetch(API.auth, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ password: els["login-password"].value })
+        body: JSON.stringify({ username: els["login-username"].value, password: els["login-password"].value })
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error || "Login failed");
       state.authToken = payload.data.token;
+      state.currentUser = payload.data.user || {};
       localStorage.setItem("itActivityAuthToken", state.authToken);
+      localStorage.setItem("itActivityCurrentUser", JSON.stringify(state.currentUser));
+      els["login-username"].value = "";
       els["login-password"].value = "";
       showApp();
       await boot();
+      showView(defaultView());
     } catch (error) {
       els["login-error"].textContent = error.message;
     } finally {
@@ -143,7 +157,9 @@
 
   function logout(showMessage) {
     state.authToken = "";
+    state.currentUser = {};
     localStorage.removeItem("itActivityAuthToken");
+    localStorage.removeItem("itActivityCurrentUser");
     state.activities = [];
     renderAll();
     showLogin();
@@ -159,6 +175,7 @@
   function showApp() {
     els["login-screen"].classList.add("hidden");
     document.querySelectorAll(".app-frame").forEach((node) => node.classList.remove("hidden"));
+    els["admin-tab"].classList.toggle("hidden", state.currentUser.role !== "admin");
   }
 
   function authHeaders(headers) {
@@ -179,6 +196,10 @@
 
   function applyTheme(theme) {
     document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
+  }
+
+  function defaultView() {
+    return state.currentUser.role === "admin" ? "dashboard" : "add";
   }
 
   async function boot() {
@@ -277,11 +298,17 @@
   }
 
   function applyDefaultFormValues() {
+    setDefaultDate();
+    setDefaultTimeIfEmpty("reportTime");
+    setDefaultTimeIfEmpty("startTime");
+    setStaffFromLogin();
+    setSelectDefault("shift", currentShiftWib());
     setSelectDefault("status", "Resolved");
     setSelectDefault("activityType", "Incident");
     setSelectDefault("supportMode", "On-Site");
     setSelectDefault("productionImpact", "No Impact");
     setSelectDefault("priority", "Medium");
+    fillPrimaryPlant();
   }
 
   function setSelectDefault(id, preferred) {
@@ -289,6 +316,26 @@
     if (!select || select.value) return;
     const options = Array.from(select.options).map((option) => option.value);
     select.value = options.includes(preferred) ? preferred : options.find(Boolean) || "";
+  }
+
+  function setStaffFromLogin() {
+    if (!els.itStaff || els.itStaff.value || !state.currentUser.username) return;
+    const match = state.staff.find((staff) => {
+      return equals(staff.name, state.currentUser.displayName) || equals(staff.name, state.currentUser.username);
+    });
+    if (match) els.itStaff.value = match.name;
+  }
+
+  function setDefaultTimeIfEmpty(id) {
+    const input = document.getElementById(id);
+    if (input && !input.value) input.value = jakartaTimeInput(new Date());
+  }
+
+  function currentShiftWib() {
+    const hour = Number(jakartaTimeInput(new Date()).slice(0, 2));
+    if (hour >= 6 && hour < 14) return "Morning";
+    if (hour >= 14 && hour < 22) return "Evening";
+    return "Night";
   }
 
   function populateSelect(select, options, placeholder) {
@@ -324,12 +371,14 @@
   }
 
   function showView(view) {
+    if (view === "admin" && state.currentUser.role !== "admin") return;
     document.querySelectorAll(".nav-tab").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.view === view);
     });
     document.querySelectorAll(".view").forEach((section) => {
       section.classList.toggle("is-active", section.id === "view-" + view);
     });
+    if (view === "admin") loadUsers();
   }
 
   async function saveActivity(event) {
@@ -422,6 +471,90 @@
     } catch (error) {
       showToast(error.message, true);
     }
+  }
+
+  async function loadUsers() {
+    if (state.currentUser.role !== "admin") return;
+    try {
+      const response = await fetch(API.users, { headers: authHeaders({ Accept: "application/json" }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal load user");
+      state.adminUsers = Array.isArray(payload.data) ? payload.data : [];
+      renderAdminUsers();
+    } catch (error) {
+      showToast(error.message, true);
+    }
+  }
+
+  async function saveUser(event) {
+    event.preventDefault();
+    const id = els["admin-user-id"].value;
+    const body = {
+      username: els["admin-username"].value.trim().toLowerCase(),
+      displayName: els["admin-display-name"].value.trim(),
+      role: els["admin-role"].value,
+      isActive: els["admin-is-active"].checked
+    };
+    if (els["admin-password"].value) body.password = els["admin-password"].value;
+    if (id) body.id = id;
+    if (!id && !body.password) {
+      showToast("Password wajib untuk user baru.", true);
+      return;
+    }
+
+    els["admin-save-user"].disabled = true;
+    try {
+      const response = await fetch(API.users, {
+        method: id ? "PUT" : "POST",
+        headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
+        body: JSON.stringify(body)
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal simpan user");
+      showToast(id ? "User berhasil diupdate." : "User berhasil dibuat.");
+      resetAdminForm();
+      await loadUsers();
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      els["admin-save-user"].disabled = false;
+    }
+  }
+
+  function renderAdminUsers() {
+    removeChildren(els["admin-users-body"]);
+    state.adminUsers.forEach((user) => {
+      const tr = document.createElement("tr");
+      [user.username, user.displayName, user.role, user.isActive ? "Active" : "Inactive", formatWibDateTime(user.updatedAt)].forEach((value) => appendCell(tr, value));
+      const action = document.createElement("td");
+      const edit = document.createElement("button");
+      edit.className = "secondary-button";
+      edit.type = "button";
+      edit.textContent = "Edit";
+      edit.addEventListener("click", () => editUser(user));
+      action.appendChild(edit);
+      tr.appendChild(action);
+      els["admin-users-body"].appendChild(tr);
+    });
+  }
+
+  function editUser(user) {
+    els["admin-user-id"].value = user.id;
+    els["admin-username"].value = user.username;
+    els["admin-display-name"].value = user.displayName;
+    els["admin-role"].value = user.role;
+    els["admin-is-active"].checked = Boolean(user.isActive);
+    els["admin-password"].value = "";
+    els["admin-password"].placeholder = "Kosongkan jika tidak diganti";
+    els["admin-save-user"].textContent = "Update User";
+  }
+
+  function resetAdminForm() {
+    els["admin-user-form"].reset();
+    els["admin-user-id"].value = "";
+    els["admin-is-active"].checked = true;
+    els["admin-password"].placeholder = "";
+    els["admin-save-user"].textContent = "Save User";
   }
 
   function updateDurationPreview() {
@@ -854,7 +987,8 @@
   }
 
   function formatTimes(item) {
-    return [item.reportTime, item.startTime, item.finishTime].filter(Boolean).join(" / ") + (item.responseTime || item.resolutionTime ? " | R " + (item.responseTime || "-") + " / " + (item.resolutionTime || "-") : "");
+    const times = [item.reportTime, item.startTime, item.finishTime].filter(Boolean).join(" / ");
+    return (times ? times + " WIB" : "") + (item.responseTime || item.resolutionTime ? " | R " + (item.responseTime || "-") + " / " + (item.resolutionTime || "-") : "");
   }
 
   function statusClass(status) {
@@ -869,6 +1003,21 @@
     if (filters.dateFrom) return "From " + displayDate(filters.dateFrom);
     if (filters.dateTo) return "Until " + displayDate(filters.dateTo);
     return "All dates";
+  }
+
+  function formatWibDateTime(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat("id-ID", {
+      timeZone: TZ,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).format(date) + " WIB";
   }
 
   function updateDashboardFilters() {
@@ -926,6 +1075,19 @@
       return acc;
     }, {});
     return parts.year + "-" + parts.month + "-" + parts.day;
+  }
+
+  function jakartaTimeInput(date) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).formatToParts(date).reduce((acc, part) => {
+      acc[part.type] = part.value;
+      return acc;
+    }, {});
+    return parts.hour + ":" + parts.minute;
   }
 
   function loadFilterPreference(key) {

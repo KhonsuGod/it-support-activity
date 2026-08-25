@@ -19,7 +19,8 @@
       <div class="brand-mark">IT</div>
       <h1>IT Support Activity</h1>
       <p>Masuk dulu sebelum membuka dashboard operasional.</p>
-      <label>Access Password <span>*</span><input id="login-password" name="password" type="password" required autofocus></label>
+      <label>Username <span>*</span><input id="login-username" name="username" type="text" required autofocus></label>
+      <label>Password <span>*</span><input id="login-password" name="password" type="password" required></label>
       <button class="primary-button" type="submit" id="login-button">Login</button>
       <small id="login-error"></small>
     </form>
@@ -38,6 +39,7 @@
       <button class="nav-tab" data-view="add">Add Activity</button>
       <button class="nav-tab" data-view="activities">Activities</button>
       <button class="nav-tab" data-view="reports">Reports</button>
+      <button class="nav-tab hidden" id="admin-tab" data-view="admin">Admin</button>
     </nav>
     <div class="header-actions">
       <button class="icon-button" id="refresh-button" title="Refresh data" type="button" aria-label="Refresh data">↻</button>
@@ -120,37 +122,37 @@
       <div class="section-heading">
         <div>
           <h2 id="form-title">Add Activity</h2>
-          <p>Input aktivitas harian IT Support.</p>
+          <p>Isi department yang bermasalah, masalahnya, dan tindakan yang dilakukan.</p>
         </div>
       </div>
       <form id="activity-form" class="activity-form simple-form" autocomplete="off">
         <input type="hidden" id="activity-id">
         <div class="quick-grid">
-          <label>Date <span>*</span><input id="date" name="date" type="date" required></label>
-          <label>IT Staff <span>*</span><select id="itStaff" name="itStaff" required></select></label>
-          <label>Shift <span>*</span><select id="shift" name="shift" required></select></label>
-          <label>Plant <span>*</span><select id="plant" name="plant" required></select></label>
           <label>Department <span>*</span><select id="department" name="department" required></select></label>
           <label>Area / Sub Department <select id="area" name="area"></select></label>
           <label>User <input id="user" name="user" type="text" maxlength="120"></label>
           <label>Asset Name <input id="assetName" name="assetName" type="text" maxlength="160"></label>
-          <label>Category <select id="category" name="category"></select></label>
           <label>Status <span>*</span><select id="status" name="status" required></select></label>
         </div>
         <label class="span-2">Problem <span>*</span><textarea id="problem" name="problem" rows="4" required placeholder="Printer Zebra ribbon tersangkut."></textarea></label>
         <label class="span-2">Action Taken <span>*</span><textarea id="actionTaken" name="actionTaken" rows="4" required placeholder="Melakukan pengecekan dan pemasangan ulang ribbon hingga printer dapat digunakan kembali."></textarea></label>
         <details class="advanced-fields">
-          <summary>Advanced details</summary>
+          <summary>Detail laporan</summary>
           <div class="form-grid">
+            <label>Date <span>*</span><input id="date" name="date" type="date" required></label>
+            <label>IT Staff <span>*</span><select id="itStaff" name="itStaff" required></select></label>
+            <label>Shift <span>*</span><select id="shift" name="shift" required></select></label>
+            <label>Plant <span>*</span><select id="plant" name="plant" required></select></label>
+            <label>Category <select id="category" name="category"></select></label>
             <label>Location <input id="location" name="location" type="text" maxlength="160"></label>
             <label>Device Type <select id="deviceType" name="deviceType"></select></label>
             <label>Activity Type <span>*</span><select id="activityType" name="activityType" required></select></label>
             <label>Support Mode <span>*</span><select id="supportMode" name="supportMode" required></select></label>
             <label>Production Impact <select id="productionImpact" name="productionImpact"></select></label>
             <label>Priority <select id="priority" name="priority"></select></label>
-            <label>Report Time <input id="reportTime" name="reportTime" type="time"></label>
-            <label>Start Time <input id="startTime" name="startTime" type="time"></label>
-            <label>Finish Time <input id="finishTime" name="finishTime" type="time"></label>
+            <label>Report Time WIB <input id="reportTime" name="reportTime" type="time"></label>
+            <label>Start Time WIB <input id="startTime" name="startTime" type="time"></label>
+            <label>Finish Time WIB <input id="finishTime" name="finishTime" type="time"></label>
             <label>Response Time <input id="responseTime" name="responseTime" type="text" readonly></label>
             <label>Resolution Time <input id="resolutionTime" name="resolutionTime" type="text" readonly></label>
             <label>Root Cause Category <select id="rootCauseCategory" name="rootCauseCategory"></select></label>
@@ -163,6 +165,46 @@
           <button class="primary-button" type="submit" id="submit-button">Save Activity</button>
         </div>
       </form>
+    </section>
+
+    <section class="view" id="view-admin" aria-labelledby="admin-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="admin-title">Admin</h2>
+          <p>Kelola user login dan reset password staff.</p>
+        </div>
+      </div>
+      <section class="admin-layout">
+        <form id="admin-user-form" class="activity-form" autocomplete="off">
+          <input type="hidden" id="admin-user-id">
+          <div class="form-grid">
+            <label>Username <span>*</span><input id="admin-username" type="text" required></label>
+            <label>Display Name <span>*</span><input id="admin-display-name" type="text" required></label>
+            <label>Role <span>*</span><select id="admin-role" required><option value="staff">staff</option><option value="admin">admin</option></select></label>
+            <label>Password Baru <input id="admin-password" type="password" minlength="8"></label>
+            <label class="checkbox-line"><input id="admin-is-active" type="checkbox" checked> Active</label>
+          </div>
+          <div class="form-actions">
+            <button class="secondary-button" type="button" id="admin-reset-form">Reset</button>
+            <button class="primary-button" type="submit" id="admin-save-user">Save User</button>
+          </div>
+        </form>
+        <div class="table-wrap">
+          <table class="data-table admin-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-body"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
 
     <section class="view" id="view-activities" aria-labelledby="activities-title">

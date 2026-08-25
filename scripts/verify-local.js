@@ -45,13 +45,15 @@ async function get(action) {
   assert.match(script, /LockService\.getScriptLock/);
   assert.match(script, /getNextActivityRow/);
 
-  process.env.APP_LOGIN_PASSWORD = "test-login-password";
   process.env.APP_SESSION_SECRET = "test-session-secret";
   const auth = require("../api/_auth");
-  assert.equal(auth.validatePassword("test-login-password"), true);
-  assert.equal(auth.validatePassword("wrong"), false);
-  assert.equal(auth.verifyToken(auth.createToken()), true);
-  assert.equal(auth.verifyToken("bad.token"), false);
+  const password = require("../api/_password");
+  const hash = await password.hashPassword("test-login-password");
+  assert.equal(await password.verifyPassword("test-login-password", hash), true);
+  assert.equal(await password.verifyPassword("wrong", hash), false);
+  const token = auth.createToken({ id: 1, username: "haris", displayName: "Haris", role: "admin" });
+  assert.equal(auth.verifyToken(token).role, "admin");
+  assert.equal(auth.verifyToken("bad.token"), null);
 
   const activitiesHandler = require("../api/activities");
   const unauthorized = await new Promise((resolve) => {
