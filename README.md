@@ -43,6 +43,18 @@ npm run start
 
 Untuk preview static tanpa Vercel Functions, file `index.html` tetap dapat dibuka via web server static. Public master data akan fallback ke Apps Script existing, tetapi CRUD activity membutuhkan Vercel Functions dan environment variable.
 
+### Local LAN Preview
+
+Untuk dibuka dari komputer lain di jaringan kantor, jalankan server dengan bind LAN:
+
+```bash
+npm run start:lan
+```
+
+Server akan menampilkan URL LAN, misalnya `http://192.168.1.55:3000`. Komputer lain yang satu subnet dapat membuka URL tersebut dari browser.
+
+Jika user berada di subnet berbeda, misalnya client `192.168.2.x` sedangkan server `192.168.1.x`, pastikan routing antar gateway/firewall mengizinkan akses ke IP server dan port `3000`. Gateway lokal yang terdeteksi saat development adalah `192.168.1.1`.
+
 ## Environment Variables
 
 Buat `.env` lokal atau set di Vercel Project Settings:

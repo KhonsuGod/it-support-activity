@@ -1,5 +1,6 @@
 const http = require("node:http");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const root = process.cwd();
@@ -59,4 +60,14 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, host, () => {
   console.log(`Local dev server: http://${host}:${port}`);
+  if (host === "0.0.0.0" || host === "::") {
+    getLanUrls(port).forEach((url) => console.log(`LAN URL: ${url}`));
+  }
 });
+
+function getLanUrls(portNumber) {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((item) => item && item.family === "IPv4" && !item.internal)
+    .map((item) => `http://${item.address}:${portNumber}`);
+}
