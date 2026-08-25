@@ -46,7 +46,7 @@ async function callScriptGet(action, params = {}) {
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
   });
-  return callFetch(url.toString(), { method: "GET" });
+  return callFetch(url.toString(), { method: "GET" }, action);
 }
 
 async function callScriptPost(action, payload = {}) {
@@ -56,22 +56,39 @@ async function callScriptPost(action, payload = {}) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(Object.assign({}, payload, { action, apiSecret }))
-  });
+  }, action);
 }
 
-async function callFetch(url, options) {
+async function callFetch(url, options, action) {
   const response = await fetch(url, options);
   const text = await response.text();
   let payload;
   try {
     payload = JSON.parse(text);
   } catch (error) {
-    throw new Error("Apps Script returned non-JSON response");
+    throw appsScriptResponseError(text, action);
   }
   if (!response.ok || !payload.success) {
     throw new Error(payload.error || "Apps Script request failed");
   }
   return payload;
+}
+
+function appsScriptResponseError(text, action) {
+  const lowerText = String(text || "").toLowerCase();
+  let message = "Apps Script returned an invalid response";
+  if (lowerText.includes("dopost") && lowerText.includes("tidak ditemukan")) {
+    message = "Apps Script backend v2 belum dideploy: function doPost belum ada di deployment existing.";
+  } else if (lowerText.includes("script function not found") && lowerText.includes("dopost")) {
+    message = "Apps Script backend v2 belum dideploy: function doPost belum ada di deployment existing.";
+  } else if (lowerText.includes("<!doctype html") || lowerText.includes("<html")) {
+    message = "Apps Script mengembalikan halaman HTML, bukan JSON. Cek deployment Web App dan permission Apps Script.";
+  }
+  if (action) message += " Action: " + action + ".";
+  const error = new Error(message);
+  error.statusCode = 502;
+  error.code = lowerText.includes("dopost") ? "APPS_SCRIPT_DOPOST_MISSING" : "APPS_SCRIPT_INVALID_RESPONSE";
+  return error;
 }
 
 function pickFilters(query) {

@@ -1,4 +1,4 @@
-const SPREADSHEET_ID = "1ShfPRzqtuWLdW8_lZdTXLDhvoc7Tx5Pid4O6IkDd4Mo";
+const SPREADSHEET_ID = "1ShfPRzqtuWLdW8_IZdTXLDhvoc7Tx5Pid4O6IkDd4Mo";
 const TIMEZONE = "Asia/Jakarta";
 const API_SECRET_PROPERTY = "APPS_SCRIPT_API_SECRET";
 
@@ -135,6 +135,8 @@ function doPost(e) {
     const body = parsePostBody(e);
     requireSecret(body);
     const action = String(body.action || "");
+    if (action === "setup") return jsonResponse({ success: true, data: setupSpreadsheetConfiguration() });
+    if (action === "timezoneCheck") return jsonResponse({ success: true, data: verifyTimezoneDateWrite() });
     if (action === "activities") return jsonResponse({ success: true, data: getActivities(body.filters || {}) });
     if (action === "createActivity") return jsonResponse({ success: true, data: createActivity(body.activity || {}) });
     if (action === "updateActivity") return jsonResponse({ success: true, data: updateActivity(body.activity || {}) });
@@ -383,7 +385,7 @@ function serializeActivity(item) {
     let value = item[key];
     if (header === "Date") value = value instanceof Date ? Utilities.formatDate(value, TIMEZONE, "yyyy-MM-dd") : normalizeDateString(value);
     if (header === "Created At" || header === "Updated At") value = value instanceof Date ? Utilities.formatDate(value, TIMEZONE, "dd/MM/yyyy HH:mm:ss") : String(value || "");
-    if (["Report Time", "Start Time", "Finish Time"].indexOf(header) !== -1) value = normalizeTime(value);
+    if (["Report Time", "Start Time", "Finish Time", "Response Time", "Resolution Time"].indexOf(header) !== -1) value = normalizeTime(value);
     output[key] = value === undefined || value === null ? "" : String(value);
   });
   return output;
@@ -580,13 +582,24 @@ function setApiSecret(secret) {
 
 function setupSpreadsheetConfiguration() {
   setSpreadsheetTimeZone(TIMEZONE);
-  ensureActivitiesHeader(getSheet(SHEETS.ACTIVITIES));
+  const sheet = getSheet(SHEETS.ACTIVITIES);
+  sheet.getRange(1, 1, 1, ACTIVITY_HEADERS.length).setValues([ACTIVITY_HEADERS]);
+  sheet.setFrozenRows(1);
+  formatActivitiesSheet(sheet);
+  return getStatus();
 }
 
 function setSpreadsheetTimeZone(timezone) {
   const tz = timezone || TIMEZONE;
   getSpreadsheet().setSpreadsheetTimeZone(tz);
   return { spreadsheetTimezone: getSpreadsheet().getSpreadsheetTimeZone(), scriptTimezone: Session.getScriptTimeZone() };
+}
+
+function formatActivitiesSheet(sheet) {
+  const headerMap = getHeaderMap(sheet);
+  sheet.getRange(2, headerMap["Date"], Math.max(sheet.getMaxRows() - 1, 1), 1).setNumberFormat("dd/MM/yyyy");
+  sheet.getRange(2, headerMap["Created At"], Math.max(sheet.getMaxRows() - 1, 1), 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  sheet.getRange(2, headerMap["Updated At"], Math.max(sheet.getMaxRows() - 1, 1), 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 function verifyTimezoneDateWrite() {

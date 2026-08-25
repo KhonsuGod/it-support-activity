@@ -6,7 +6,20 @@ module.exports = async function handler(req, res) {
     requireAuth(req);
 
     if (req.method === "GET") {
-      const payload = await callScriptPost("activities", { filters: pickFilters(req.query || {}) });
+      let payload;
+      try {
+        payload = await callScriptPost("activities", { filters: pickFilters(req.query || {}) });
+      } catch (error) {
+        if (error.code === "APPS_SCRIPT_DOPOST_MISSING") {
+          sendJson(res, 200, {
+            success: true,
+            data: [],
+            warning: "Apps Script backend v2 belum dideploy, jadi activity spreadsheet belum bisa dibaca."
+          });
+          return;
+        }
+        throw error;
+      }
       sendJson(res, 200, payload);
       return;
     }

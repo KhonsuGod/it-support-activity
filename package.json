@@ -15,5 +15,8 @@
   },
   "dependencies": {
     "mysql2": "^3.24.2"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.0"
   }
 }

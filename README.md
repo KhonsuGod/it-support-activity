@@ -21,6 +21,17 @@ Public master-data endpoint tetap tersedia di Apps Script:
 
 Activity read/write dari browser melewati Vercel API. Secret hanya disimpan di server-side environment variable Vercel dan Script Properties Apps Script.
 
+## Google Assets
+
+Gunakan ID/URL berikut sesuai fungsinya:
+
+- Drive folder: `10y9A9QDO0xk2JDiJapum6k8PEdpPZUXK`
+- Spreadsheet database: `1ShfPRzqtuWLdW8_IZdTXLDhvoc7Tx5Pid4O6IkDd4Mo`
+- Apps Script project/editor: `1-RKIuRX9ljokDrRH0cqLp0CjD2K0GKPOA9O3edB2JUMkViaRooGrnpKd`
+- Apps Script Web App URL untuk `APPS_SCRIPT_URL`: `https://script.google.com/macros/s/AKfycbwQ5HEhd_JPr6HtGo0Knnf4thEHK2kOqME_aFQRygi7NtM1SR6wQzhAFIk5oIks_NjM7g/exec`
+
+Folder Drive dan editor Apps Script bukan URL API aplikasi. Vercel harus memakai Web App URL dengan akhiran `/exec`.
+
 ## Local Development
 
 Install Node.js 18+ lalu jalankan:

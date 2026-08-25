@@ -233,11 +233,17 @@
   async function loadActivities(manual) {
     if (manual) setSyncState("Refreshing");
     try {
-      const data = await fetchJson(API.activities, "activities");
+      const payload = await fetchPayload(API.activities, "activities");
+      const data = payload.data;
       state.activities = Array.isArray(data) ? data.map(normalizeActivity) : [];
       renderAll();
-      setSyncState("Online", "ok");
-      if (manual) showToast("Data activity diperbarui dari spreadsheet.");
+      if (payload.warning) {
+        setSyncState("API setup", "error");
+        if (manual) showToast(payload.warning, true);
+      } else {
+        setSyncState("Online", "ok");
+        if (manual) showToast("Data activity diperbarui dari spreadsheet.");
+      }
     } catch (error) {
       state.activities = [];
       renderAll();
@@ -247,6 +253,11 @@
   }
 
   async function fetchJson(url, publicAction) {
+    const payload = await fetchPayload(url, publicAction);
+    return payload.data;
+  }
+
+  async function fetchPayload(url, publicAction) {
     try {
       const response = await fetch(url, { headers: authHeaders({ Accept: "application/json" }) });
       if (response.status === 401) {
@@ -256,13 +267,13 @@
       if (!response.ok) throw new Error("HTTP " + response.status);
       const payload = await response.json();
       if (!payload.success) throw new Error(payload.error || "API request failed");
-      return payload.data;
+      return payload;
     } catch (error) {
       if (publicAction && publicAction !== "activities") {
         const fallback = await fetch(FALLBACK_SCRIPT_URL + "?action=" + encodeURIComponent(publicAction));
         const payload = await fallback.json();
         if (!payload.success) throw new Error(payload.error || "Fallback API failed");
-        return payload.data;
+        return payload;
       }
       throw error;
     }
