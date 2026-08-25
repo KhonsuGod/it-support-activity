@@ -150,9 +150,9 @@
             <label>Support Mode <span>*</span><select id="supportMode" name="supportMode" required></select></label>
             <label>Production Impact <select id="productionImpact" name="productionImpact"></select></label>
             <label>Priority <select id="priority" name="priority"></select></label>
-            <label>Report Time WIB <input id="reportTime" name="reportTime" type="time"></label>
-            <label>Start Time WIB <input id="startTime" name="startTime" type="time"></label>
-            <label>Finish Time WIB <input id="finishTime" name="finishTime" type="time"></label>
+            <label>Report Time WIB <input id="reportTime" name="reportTime" type="text" inputmode="numeric" pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$" placeholder="22:30"></label>
+            <label>Start Time WIB <input id="startTime" name="startTime" type="text" inputmode="numeric" pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$" placeholder="22:35"></label>
+            <label>Finish Time WIB <input id="finishTime" name="finishTime" type="text" inputmode="numeric" pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$" placeholder="22:50"></label>
             <label>Response Time <input id="responseTime" name="responseTime" type="text" readonly></label>
             <label>Resolution Time <input id="resolutionTime" name="resolutionTime" type="text" readonly></label>
             <label>Root Cause Category <select id="rootCauseCategory" name="rootCauseCategory"></select></label>
@@ -235,7 +235,7 @@
               <th>Mode</th>
               <th>Impact</th>
               <th>Priority</th>
-              <th>Times</th>
+              <th>Waktu WIB</th>
               <th>Status</th>
               <th class="no-print">Actions</th>
             </tr>

@@ -96,6 +96,7 @@
     els.itStaff.addEventListener("change", fillPrimaryPlant);
     ["reportTime", "startTime", "finishTime"].forEach((id) => {
       els[id].addEventListener("input", updateDurationPreview);
+      els[id].addEventListener("blur", () => normalizeTimeInput(id));
     });
     els["confirm-cancel"].addEventListener("click", closeConfirm);
     els["confirm-ok"].addEventListener("click", executeDelete);
@@ -411,6 +412,7 @@
 
   function formToActivity() {
     const data = {};
+    ["reportTime", "startTime", "finishTime"].forEach(normalizeTimeInput);
     ["date", "itStaff", "shift", "plant", "department", "area", "user", "location", "assetName", "deviceType", "category", "activityType", "problem", "actionTaken", "supportMode", "productionImpact", "priority", "reportTime", "startTime", "finishTime", "rootCauseCategory", "rootCauseDetail", "status", "notes"].forEach((key) => {
       data[key] = (document.getElementById(key).value || "").trim();
     });
@@ -560,6 +562,14 @@
   function updateDurationPreview() {
     els.responseTime.value = calculateDuration(els.reportTime.value, els.startTime.value);
     els.resolutionTime.value = calculateDuration(els.startTime.value, els.finishTime.value);
+  }
+
+  function normalizeTimeInput(id) {
+    const input = document.getElementById(id);
+    if (!input || !input.value) return;
+    const match = input.value.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return;
+    input.value = match[1].padStart(2, "0") + ":" + match[2];
   }
 
   function calculateDuration(start, finish) {
