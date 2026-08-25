@@ -70,6 +70,8 @@ Jangan gunakan prefix `VITE_` atau `NEXT_PUBLIC_` untuk secret.
 
 `DATABASE_URL` bisa memakai MySQL atau MariaDB. `APP_SESSION_SECRET` dipakai untuk menandatangani session token browser.
 
+Jika `DATABASE_URL` belum diset, production akan memakai fallback user store di Apps Script Script Properties. Fallback ini tetap server-side dan tidak mengekspos password ke frontend. Password disimpan sebagai salted hash. Jika nanti MariaDB production tersedia, isi `DATABASE_URL` dan aplikasi otomatis memakai MariaDB lagi.
+
 ## User Database
 
 Schema user ada di `db/schema.sql`. User login disimpan di tabel `users`, password disimpan sebagai hash PBKDF2.
@@ -86,7 +88,7 @@ SEED_USERS_JSON='[
 ]' npm run db:seed
 ```
 
-`haris` diset sebagai `admin` karena PIC. Admin bisa membuat user baru, mengubah role, menonaktifkan user, dan reset password staff dari halaman Admin.
+`haris` diset sebagai `admin` karena PIC. Admin bisa membuat user baru, mengubah role, menonaktifkan user, dan reset password staff dari halaman Admin. Untuk production tanpa `DATABASE_URL`, user awal dapat diseed ke Apps Script melalui endpoint server-side `seedUsers` yang dilindungi `APPS_SCRIPT_API_SECRET`.
 
 ## Apps Script Setup
 
@@ -185,7 +187,7 @@ Filter read activities:
    - `APPS_SCRIPT_URL`
    - `APPS_SCRIPT_API_SECRET`
    - `APP_SESSION_SECRET`
-   - `DATABASE_URL`
+   - `DATABASE_URL` optional jika memakai fallback Apps Script user store
 3. Deploy.
 4. Test `/api/status`, `/api/staff`, `/api/master`, `/api/departments`, dan `/api/activities`.
 

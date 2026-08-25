@@ -1,6 +1,7 @@
 const SPREADSHEET_ID = "1ShfPRzqtuWLdW8_IZdTXLDhvoc7Tx5Pid4O6IkDd4Mo";
 const TIMEZONE = "Asia/Jakarta";
 const API_SECRET_PROPERTY = "APPS_SCRIPT_API_SECRET";
+const USER_STORE_PROPERTY = "IT_ACTIVITY_USERS";
 
 const SHEETS = {
   ACTIVITIES: "Activities",
@@ -137,6 +138,11 @@ function doPost(e) {
     const action = String(body.action || "");
     if (action === "setup") return jsonResponse({ success: true, data: setupSpreadsheetConfiguration() });
     if (action === "timezoneCheck") return jsonResponse({ success: true, data: verifyTimezoneDateWrite() });
+    if (action === "authenticateUser") return jsonResponse({ success: true, data: authenticateUser(body.username, body.password) });
+    if (action === "listUsers") return jsonResponse({ success: true, data: listStoredUsers() });
+    if (action === "createUser") return jsonResponse({ success: true, data: createStoredUser(body.user || {}) });
+    if (action === "updateUser") return jsonResponse({ success: true, data: updateStoredUser(body.user || {}) });
+    if (action === "seedUsers") return jsonResponse({ success: true, data: seedStoredUsers(body.users || []) });
     if (action === "activities") return jsonResponse({ success: true, data: getActivities(body.filters || {}) });
     if (action === "createActivity") return jsonResponse({ success: true, data: createActivity(body.activity || {}) });
     if (action === "updateActivity") return jsonResponse({ success: true, data: updateActivity(body.activity || {}) });
@@ -578,6 +584,140 @@ function jsonResponse(payload) {
 function setApiSecret(secret) {
   if (!secret) throw new Error("Secret is required");
   PropertiesService.getScriptProperties().setProperty(API_SECRET_PROPERTY, String(secret));
+}
+
+function authenticateUser(username, password) {
+  const normalizedUsername = String(username || "").trim().toLowerCase();
+  if (!normalizedUsername || !password) return null;
+  const user = getStoredUsers().find(function(item) {
+    return item.username === normalizedUsername && item.isActive !== false;
+  });
+  if (!user || !verifyStoredPassword(password, user.passwordHash)) return null;
+  return serializeStoredUser(user);
+}
+
+function listStoredUsers() {
+  return getStoredUsers().map(serializeStoredUser);
+}
+
+function createStoredUser(input) {
+  const users = getStoredUsers();
+  const username = String(input.username || "").trim().toLowerCase();
+  if (!username) throw new Error("Username is required");
+  if (!input.password) throw new Error("Password is required");
+  const existing = users.find(function(item) { return item.username === username; });
+  const user = {
+    id: existing ? existing.id : getNextUserId(users),
+    username: username,
+    displayName: String(input.displayName || input.username || "").trim(),
+    role: normalizeStoredRole(input.role),
+    isActive: input.isActive === false ? false : true,
+    passwordHash: hashStoredPassword(input.password),
+    createdAt: existing ? existing.createdAt : nowTimestamp(),
+    updatedAt: nowTimestamp()
+  };
+  if (existing) {
+    users[users.indexOf(existing)] = user;
+  } else {
+    users.push(user);
+  }
+  saveStoredUsers(users);
+  return serializeStoredUser(user);
+}
+
+function updateStoredUser(input) {
+  const users = getStoredUsers();
+  const id = String(input.id || "").trim();
+  if (!id) throw new Error("User ID is required");
+  const user = users.find(function(item) { return String(item.id) === id; });
+  if (!user) throw new Error("User not found");
+  if (input.displayName !== undefined) user.displayName = String(input.displayName || user.username).trim();
+  if (input.role !== undefined) user.role = normalizeStoredRole(input.role);
+  if (input.isActive !== undefined) user.isActive = Boolean(input.isActive);
+  if (input.password) user.passwordHash = hashStoredPassword(input.password);
+  user.updatedAt = nowTimestamp();
+  saveStoredUsers(users);
+  return serializeStoredUser(user);
+}
+
+function seedStoredUsers(inputs) {
+  const users = Array.isArray(inputs) ? inputs.map(function(input, index) {
+    if (!input.username || !input.password) throw new Error("Seed user needs username and password");
+    return {
+      id: "U-" + String(index + 1).padStart(3, "0"),
+      username: String(input.username).trim().toLowerCase(),
+      displayName: String(input.displayName || input.username).trim(),
+      role: normalizeStoredRole(input.role),
+      isActive: input.isActive === false ? false : true,
+      passwordHash: hashStoredPassword(input.password),
+      createdAt: nowTimestamp(),
+      updatedAt: nowTimestamp()
+    };
+  }) : [];
+  saveStoredUsers(users);
+  return { seeded: users.length };
+}
+
+function getStoredUsers() {
+  const raw = PropertiesService.getScriptProperties().getProperty(USER_STORE_PROPERTY);
+  if (!raw) return [];
+  const users = JSON.parse(raw);
+  return Array.isArray(users) ? users : [];
+}
+
+function saveStoredUsers(users) {
+  PropertiesService.getScriptProperties().setProperty(USER_STORE_PROPERTY, JSON.stringify(users));
+}
+
+function getNextUserId(users) {
+  let max = 0;
+  users.forEach(function(user) {
+    const number = parseInt(String(user.id || "").replace(/^U-/, ""), 10);
+    if (!isNaN(number) && number > max) max = number;
+  });
+  return "U-" + String(max + 1).padStart(3, "0");
+}
+
+function hashStoredPassword(password) {
+  const salt = Utilities.getUuid().replace(/-/g, "");
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + ":" + String(password || ""));
+  return "sha256$" + salt + "$" + bytesToHex(digest);
+}
+
+function verifyStoredPassword(password, storedHash) {
+  const parts = String(storedHash || "").split("$");
+  if (parts.length !== 3 || parts[0] !== "sha256") return false;
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, parts[1] + ":" + String(password || ""));
+  return bytesToHex(digest) === parts[2];
+}
+
+function bytesToHex(bytes) {
+  return bytes.map(function(byte) {
+    const value = byte < 0 ? byte + 256 : byte;
+    return ("0" + value.toString(16)).slice(-2);
+  }).join("");
+}
+
+function normalizeStoredRole(role) {
+  const value = String(role || "staff").trim().toLowerCase();
+  if (value !== "admin" && value !== "staff") throw new Error("Role must be admin or staff");
+  return value;
+}
+
+function serializeStoredUser(user) {
+  return {
+    id: String(user.id || ""),
+    username: String(user.username || ""),
+    displayName: String(user.displayName || user.username || ""),
+    role: normalizeStoredRole(user.role),
+    isActive: user.isActive !== false,
+    createdAt: String(user.createdAt || ""),
+    updatedAt: String(user.updatedAt || "")
+  };
+}
+
+function nowTimestamp() {
+  return Utilities.formatDate(new Date(), TIMEZONE, "dd/MM/yyyy HH:mm:ss");
 }
 
 function setupSpreadsheetConfiguration() {

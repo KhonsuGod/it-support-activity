@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
-const { ensureUserSchema, findUserByUsername } = require("./_db");
+const { ensureUserSchema, findUserByUsername, hasDatabaseConfig } = require("./_db");
+const { callScriptPost } = require("./_google");
 const { verifyPassword } = require("./_password");
 
 const TOKEN_TTL_SECONDS = 12 * 60 * 60;
@@ -25,9 +26,13 @@ function createToken(user) {
 }
 
 async function authenticate(username, password) {
-  await ensureUserSchema();
   const normalizedUsername = String(username || "").trim().toLowerCase();
   if (!normalizedUsername || !password) return null;
+  if (!hasDatabaseConfig()) {
+    const payload = await callScriptPost("authenticateUser", { username: normalizedUsername, password });
+    return payload.data ? sanitizeUser(payload.data) : null;
+  }
+  await ensureUserSchema();
   const user = await findUserByUsername(normalizedUsername);
   if (!user || Number(user.isActive) !== 1) return null;
   const valid = await verifyPassword(password, user.passwordHash);

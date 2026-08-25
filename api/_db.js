@@ -6,6 +6,10 @@ function getDatabaseUrl() {
   return process.env.DATABASE_URL || process.env.MARIADB_URL || "";
 }
 
+function hasDatabaseConfig() {
+  return Boolean(getDatabaseUrl());
+}
+
 function getPool() {
   if (pool) return pool;
   const uri = getDatabaseUrl();
@@ -93,6 +97,7 @@ async function updateUser(id, fields) {
 module.exports = {
   ensureUserSchema,
   findUserByUsername,
+  hasDatabaseConfig,
   listUsers,
   query,
   updateUser,

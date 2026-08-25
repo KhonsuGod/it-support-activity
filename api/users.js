@@ -1,11 +1,16 @@
 const { requireAdmin } = require("./_auth");
-const { ensureUserSchema, listUsers, updateUser, upsertUser } = require("./_db");
+const { ensureUserSchema, hasDatabaseConfig, listUsers, updateUser, upsertUser } = require("./_db");
 const { hashPassword } = require("./_password");
-const { readBody, sendJson } = require("./_google");
+const { callScriptPost, readBody, sendJson } = require("./_google");
 
 module.exports = async function handler(req, res) {
   try {
     requireAdmin(req);
+    if (!hasDatabaseConfig()) {
+      await handleScriptUsers(req, res);
+      return;
+    }
+
     await ensureUserSchema();
 
     if (req.method === "GET") {
@@ -50,6 +55,48 @@ module.exports = async function handler(req, res) {
     sendJson(res, error.statusCode || 500, { success: false, error: error.message || "Users API failed" });
   }
 };
+
+async function handleScriptUsers(req, res) {
+  if (req.method === "GET") {
+    const payload = await callScriptPost("listUsers");
+    sendJson(res, 200, { success: true, data: payload.data.map(serializeUser) });
+    return;
+  }
+
+  if (req.method === "POST") {
+    const body = await readBody(req);
+    validateUserPayload(body, true);
+    const payload = await callScriptPost("createUser", {
+      user: {
+        username: String(body.username).trim().toLowerCase(),
+        displayName: String(body.displayName || body.username).trim(),
+        password: body.password,
+        role: normalizeRole(body.role),
+        isActive: body.isActive === false ? false : true
+      }
+    });
+    sendJson(res, 200, { success: true, data: payload.data });
+    return;
+  }
+
+  if (req.method === "PUT") {
+    const body = await readBody(req);
+    if (!body.id) {
+      sendJson(res, 400, { success: false, error: "User ID is required" });
+      return;
+    }
+    const user = { id: String(body.id) };
+    if (body.displayName !== undefined) user.displayName = String(body.displayName).trim();
+    if (body.password) user.password = body.password;
+    if (body.role !== undefined) user.role = normalizeRole(body.role);
+    if (body.isActive !== undefined) user.isActive = Boolean(body.isActive);
+    const payload = await callScriptPost("updateUser", { user });
+    sendJson(res, 200, { success: true, data: payload.data });
+    return;
+  }
+
+  sendJson(res, 405, { success: false, error: "Method not allowed" });
+}
 
 function validateUserPayload(body, requirePassword) {
   if (!String(body.username || "").trim()) throw badRequest("Username is required");
