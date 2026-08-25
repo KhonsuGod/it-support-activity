@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Activity Tracker Pro - IT & Operations Report</title>
+
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        excel: {
+                            50: '#f2f8f5',
+                            100: '#e1f0e8',
+                            500: '#107c41', // Microsoft Excel Signature Green
+                            600: '#0e6b37',
+                            700: '#0b532b',
+                            header: '#B4C6E7',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome 6 Pro/Free Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (xlsx) Library for Clean Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* Modern Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Excel Print-Accurate Styling */
+        .excel-table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            background-color: #ffffff;
+            border: 2px solid #000000;
+        }
+
+        .excel-table th {
+            background-color: #B4C6E7 !important;
+            color: #000000;
+            font-weight: 700;
+            border-right: 1px solid #000000;
+            border-bottom: 2px solid #000000;
+            padding: 10px 8px;
+            font-size: 0.8125rem;
+            text-align: center;
+            vertical-align: middle;
+            line-height: 1.3;
+        }
+        .excel-table th:last-child {
+            border-right: none;
+        }
+
+        .excel-table td {
+            border-right: 1px solid #000000;
+            border-bottom: 1px solid #000000;
+            padding: 8px 10px;
+            font-size: 0.835rem;
+            color: #000000;
+            vertical-align: middle;
+            word-wrap: break-word;
+            min-height: 38px;
+        }
+        .excel-table td:last-child {
+            border-right: none;
+        }
+        .excel-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Glassmorphism subtle effects */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Professional Print Optimization */
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; color: black !important; padding: 0 !important; font-size: 9pt; }
+            .print-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; shadow: none !important; }
+            .excel-card { border: none !important; shadow: none !important; padding: 0 !important; }
+            .excel-table { border: 2px solid #000 !important; font-size: 8.5pt !important; width: 100% !important; }
+            .excel-table th { background-color: #B4C6E7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .excel-table td, .excel-table th { border: 1px solid #000 !important; padding: 5px 6px !important; }
+            .col-aksi { display: none !important; }
+        }
+    </style>
+</head>
+
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased selection:bg-blue-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- App Logo & Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-excel-500 flex items-center justify-center text-white shadow-lg shadow-emerald-900/40">
+                        <i class="fa-solid fa-file-excel text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-bold text-lg tracking-tight text-white">Daily Activity Tracker</h1>
+                            <span class="bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30 uppercase tracking-wider">Pro v2.0</span>
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium">Sistem Laporan Lintas Divisi & Laporan Atasan</p>
+                    </div>
+                </div>
+
+                <!-- Primary Action Header Buttons -->
+                <div class="flex items-center gap-2.5">
+                    <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm shadow-blue-600/30 active:scale-95">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span class="hidden sm:inline">Tambah Kegiatan</span>
+                        <span class="sm:hidden">Tambah</span>
+                    </button>
+
+                    <div class="h-6 w-[1px] bg-slate-700 mx-1 hidden sm:block"></div>
+
+                    <!-- Export Excel Button -->
+                    <button onclick="exportToExcel()" title="Download sebagai Excel (.xlsx)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm shadow-emerald-600/20 active:scale-95">
+                        <i class="fa-solid fa-file-excel text-sm"></i>
+                        <span class="hidden md:inline">Export Excel</span>
+                    </button>
+
+                    <!-- Copy Table Button -->
+                    <button onclick="copyTableToClipboard()" title="Salin format untuk WhatsApp / Email" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-all flex items-center gap-2 active:scale-95">
+                        <i class="fa-regular fa-copy"></i>
+                        <span class="hidden lg:inline">Salin Tabel</span>
+                    </button>
+
+                    <!-- Print / Save PDF -->
+                    <button onclick="window.print()" title="Cetak atau simpan ke PDF" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-all flex items-center gap-2 active:scale-95">
+                        <i class="fa-solid fa-print"></i>
+                        <span class="hidden lg:inline">Cetak PDF</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 print-container space-y-6">
+        
+        <!-- Summary Analytical Cards (Hidden on Print) -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 no-print">
+            <!-- Total Card -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Laporan</p>
+                        <h3 id="stat-total" class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1 font-mono">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center text-xs text-slate-500 font-medium">
+                    <span class="text-blue-600 font-semibold mr-1" id="stat-total-sub">0%</span> dari target kegiatan
+                </div>
+            </div>
+
+            <!-- Selesai Card -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Tuntas / Selesai</p>
+                        <h3 id="stat-selesai" class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1 font-mono">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center text-xs text-slate-500 font-medium">
+                    <span class="text-emerald-600 font-semibold mr-1" id="stat-selesai-rate">0%</span> penyelesaian
+                </div>
+            </div>
+
+            <!-- Dalam Proses Card -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Dalam Proses</p>
+                        <h3 id="stat-proses" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1 font-mono">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-spinner fa-spin-pulse"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center text-xs text-slate-500 font-medium">
+                    <span id="stat-proses-sub" class="text-amber-600 font-semibold">Sedang berjalan</span>
+                </div>
+            </div>
+
+            <!-- Pending Card -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-rose-600 uppercase tracking-wider">Pending / Tertunda</p>
+                        <h3 id="stat-pending" class="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-1 font-mono">0</h3>
+                    </div>
+                    <div class="w-11 h-11 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center text-xs text-slate-500 font-medium">
+                    <span id="stat-pending-sub" class="text-rose-600 font-semibold">Membutuhkan tindakan</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls & Filter Toolbar (Hidden on Print) -->
+        <section class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm no-print space-y-3 md:space-y-0 md:flex md:items-center md:justify-between gap-4">
+            
+            <!-- Left Side Controls: Search & Dropdown Filters -->
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <!-- Search Input -->
+                <div class="relative flex-grow sm:flex-grow-0 sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="search-input" onkeyup="filterActivities()" placeholder="Cari masalah, solusi, user..." class="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition duration-150 focus:outline-none">
+                    <button onclick="clearSearch()" id="clear-search-btn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Status Filter -->
+                <select id="filter-status" onchange="filterActivities()" class="text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none cursor-pointer">
+                    <option value="ALL">Semua Status</option>
+                    <option value="selesai">Status: Selesai</option>
+                    <option value="proses">Status: Dalam Proses</option>
+                    <option value="pending">Status: Pending</option>
+                </select>
+
+                <!-- Date Filter -->
+                <div class="relative">
+                    <input type="date" id="filter-date" onchange="filterActivities()" class="text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none cursor-pointer">
+                </div>
+                
+                <button onclick="resetFilters()" class="text-xs font-semibold text-slate-500 hover:text-blue-600 px-2 py-1 transition flex items-center gap-1">
+                    <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Reset
+                </button>
+            </div>
+
+            <!-- Right Side Controls: Data Management -->
+            <div class="flex items-center gap-2 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                <button onclick="loadSampleData()" title="Muat ulang data contoh persis screenshot" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200/60 active:scale-95">
+                    <i class="fa-solid fa-database text-slate-500"></i> Contoh Data
+                </button>
+                <button onclick="confirmClearAll()" title="Bersihkan seluruh data laporan" class="text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-rose-200/60 active:scale-95">
+                    <i class="fa-solid fa-trash-can"></i> Hapus Semua
+                </button>
+            </div>
+        </section>
+
+        <!-- Main Activity Output Table Container (Excel Accurate Visuals) -->
+        <section class="excel-card bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-4 sm:p-6 lg:p-8">
+            
+            <!-- Table Header Banner inside Output -->
+            <div class="text-center mb-6">
+                <h2 class="text-xl sm:text-2xl font-black tracking-wider text-slate-900 uppercase font-sans">DAILY ACTIVITY</h2>
+                <div class="flex items-center justify-center gap-2 mt-1">
+                    <span class="h-[1px] w-8 bg-slate-300 no-print"></span>
+                    <p class="text-xs font-medium text-slate-500">Laporan Aktivitas Harian IT / Operasional </p>
+                    <span class="h-[1px] w-8 bg-slate-300 no-print"></span>
+                </div>
+            </div>
+
+            <!-- Responsive Table Wrapper -->
+            <div class="overflow-x-auto rounded-lg">
+                <table class="excel-table min-w-[1000px]" id="activity-table">
+                    <thead>
+                        <tr>
+                            <th class="w-[110px]">Tanggal</th>
+                            <th class="w-[120px]">Nama user</th>
+                            <th class="w-[130px]">nama komputer</th>
+                            <th class="w-[130px]">jenis perangkat</th>
+                            <th class="w-[22%]">permasalahan</th>
+                            <th class="w-[24%]">solusi</th>
+                            <th class="w-[85px]">jam info</th>
+                            <th class="w-[95px]">selesai dikerjakan</th>
+                            <th class="w-[85px]">status</th>
+                            <th class="w-[70px] no-print">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activity-table-body">
+                        <!-- Dynamic rows loaded by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State Illustration -->
+            <div id="empty-state" class="hidden text-center py-16 px-4">
+                <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400 mb-4 shadow-inner">
+                    <i class="fa-solid fa-folder-open text-2xl"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-800">Belum ada data kegiatan</h3>
+                <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Klik tombol <strong>"Tambah Kegiatan"</strong> di atas atau muat data sampel untuk melihat tabel.</p>
+                <button onclick="openModal()" class="mt-4 inline-flex items-center gap-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition shadow-sm">
+                    <i class="fa-solid fa-plus"></i> Input Kegiatan Pertama
+                </button>
+            </div>
+
+            <!-- Footer Meta for Print View -->
+            <div class="mt-6 pt-4 border-t border-slate-200 hidden print:flex justify-between items-center text-[8pt] text-slate-600">
+                <div>Dicetak pada: <span id="print-timestamp" class="font-mono"></span></div>
+                <div>Halaman 1 dari 1</div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Form Modal Add / Edit Activity -->
+    <div id="activity-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 overflow-y-auto no-print transition-all duration-200">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden transform transition-all border border-slate-100 animate-in fade-in zoom-in duration-200">
+            
+            <!-- Modal Header -->
+            <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-blue-600/30 text-blue-400 flex items-center justify-center text-sm border border-blue-500/30">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </div>
+                    <div>
+                        <h3 id="modal-title" class="font-bold text-base text-white">Input Daily Activity</h3>
+                        <p class="text-[11px] text-slate-400">Isi rincian kegiatan pekerjaan Anda di bawah ini</p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white w-8 h-8 rounded-lg hover:bg-slate-800 transition flex items-center justify-center text-lg">&times;</button>
+            </div>
+
+            <!-- Modal Form Body -->
+            <form id="activity-form" onsubmit="saveActivity(event)" class="p-6 space-y-4">
+                <input type="hidden" id="entry-id">
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Tanggal Input -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tanggal <span class="text-rose-500">*</span></label>
+                        <input type="date" id="input-tanggal" required class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition">
+                    </div>
+
+                    <!-- Status Select -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Status <span class="text-rose-500">*</span></label>
+                        <select id="input-status" required class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition cursor-pointer">
+                            <option value="selesai" class="font-semibold text-emerald-700">selesai</option>
+                            <option value="proses" class="font-semibold text-amber-700">proses</option>
+                            <option value="pending" class="font-semibold text-rose-700">pending</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Nama User -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nama User</label>
+                        <input type="text" id="input-user" placeholder="Misal: Budi / HRD" class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition">
+                    </div>
+
+                    <!-- Nama Komputer -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nama Komputer</label>
+                        <input type="text" id="input-komputer" placeholder="Misal: PC-HRD-01" class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition font-mono">
+                    </div>
+                </div>
+
+                <!-- Jenis Perangkat -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Jenis Perangkat / Lokasi</label>
+                    <input type="text" id="input-perangkat" placeholder="Misal: Printer EPSON L3110 / Rak Gudang / Server" class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition">
+                </div>
+
+                <!-- Permasalahan -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Permasalahan / Problem</label>
+                    <textarea id="input-permasalahan" rows="2" placeholder="Deskripsikan kendala yang terjadi (opsional)..." class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition"></textarea>
+                </div>
+
+                <!-- Solusi / Tindakan -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Solusi / Tindakan Kegiatan <span class="text-rose-500">*</span></label>
+                    <textarea id="input-solusi" rows="2" required placeholder="Contoh: isi 4 toner / beresin rak gudang..." class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition"></textarea>
+                </div>
+
+                <!-- Jam Information Grid -->
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Jam Info -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Jam Info / Laporan</label>
+                        <div class="flex gap-1.5">
+                            <input type="text" id="input-jam-info" placeholder="07:30" class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition">
+                            <button type="button" onclick="setNow('input-jam-info')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 rounded-xl font-semibold whitespace-nowrap border border-slate-300 transition">
+                                Jam Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Jam Selesai -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Selesai Dikerjakan</label>
+                        <div class="flex gap-1.5">
+                            <input type="text" id="input-selesai" placeholder="08:30" class="w-full text-xs sm:text-sm border border-slate-300 rounded-xl p-2.5 font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition">
+                            <button type="button" onclick="setNow('input-selesai')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 rounded-xl font-semibold whitespace-nowrap border border-slate-300 transition">
+                                Jam Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Actions Footer -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 mt-6">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs sm:text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-semibold transition">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-sm shadow-blue-600/30 flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Simpan Laporan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Toast Notification Box -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 transform translate-y-24 opacity-0 transition-all duration-300 z-50 no-print border border-slate-800">
+        <div id="toast-icon-bg" class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm">
+            <i id="toast-icon" class="fa-solid fa-circle-check"></i>
+        </div>
+        <span id="toast-message" class="text-xs sm:text-sm font-medium">Notifikasi Sistem</span>
+    </div>
+
+    <!-- Simple Custom Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 no-print">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center space-y-4">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h4 class="font-bold text-slate-800 text-base">Hapus Semua Data?</h4>
+                <p class="text-xs text-slate-500 mt-1">Tindakan ini akan menghapus seluruh catatan laporan kegiatan yang tersimpan.</p>
+            </div>
+            <div class="flex gap-2.5 pt-2">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Batal</button>
+                <button onclick="executeClearAll()" class="flex-1 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Footer -->
+    <footer class="bg-white border-t border-slate-200/80 py-4 mt-auto no-print">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>&copy; 2026 Daily Activity Tracker System - Format Laporan Excel Atasan.</p>
+            <p class="text-slate-400">Tekan tombol <kbd class="bg-slate-100 border border-slate-300 px-1 rounded text-[10px]">Cetak PDF</kbd> atau <kbd class="bg-slate-100 border border-slate-300 px-1 rounded text-[10px]">Export Excel</kbd> untuk menyerahkan hasil.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Sample Data Matching User's Screenshot Structure Perfectly
+        const SAMPLE_DATA = [
+            {
+                id: '1',
+                tanggal: '2026-08-25',
+                tanggalDisplay: '25-08-2026',
+                user: '',
+                komputer: '',
+                perangkat: '',
+                permasalahan: '',
+                solusi: 'isi 4 toner',
+                jamInfo: '7:30',
+                selesai: '8:30',
+                status: 'selesai'
+            },
+            {
+                id: '2',
+                tanggal: '2027-08-25',
+                tanggalDisplay: '25-08-2027',
+                user: '',
+                komputer: '',
+                perangkat: '',
+                permasalahan: '',
+                solusi: 'pembuatan jadwal kerja untuk HRD',
+                jamInfo: '8:40',
+                selesai: '9:30',
+                status: 'selesai'
+            },
+            {
+                id: '3',
+                tanggal: '2028-08-25',
+                tanggalDisplay: '25-08-2028',
+                user: '',
+                komputer: '',
+                perangkat: '',
+                permasalahan: '',
+                solusi: 'beresin rak gudang',
+                jamInfo: '13:00',
+                selesai: '',
+                status: 'proses'
+            },
+            {
+                id: '4',
+                tanggal: '2029-08-25',
+                tanggalDisplay: '25-08-2029',
+                user: '',
+                komputer: '',
+                perangkat: '',
+                permasalahan: '',
+                solusi: '',
+                jamInfo: '',
+                selesai: '',
+                status: ''
+            },
+            {
+                id: '5',
+                tanggal: '2030-08-25',
+                tanggalDisplay: '25-08-2030',
+                user: '',
+                komputer: '',
+                perangkat: '',
+                permasalahan: '',
+                solusi: '',
+                jamInfo: '',
+                selesai: '',
+                status: ''
+            },
+            {
+                id: '6',
+                tanggal: '2031-08-25',
+                tanggalDisplay: '25-08-2031',
+                user: '',
+                komputer: '',
+                perangkat: '',
+                permasalahan: '',
+                solusi: '',
+                jamInfo: '',
+                selesai: '',
+                status: ''
+            }
+        ];
+
+        let activities = [];
+
+        // App Initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedData = localStorage.getItem('daily_activities_pro_v2');
+            if (savedData) {
+                try {
+                    activities = JSON.parse(savedData);
+                } catch (e) {
+                    activities = [...SAMPLE_DATA];
+                }
+            } else {
+                activities = [...SAMPLE_DATA];
+                saveToLocalStorage();
+            }
+
+            // Set current time for print timestamp
+            const now = new Date();
+            document.getElementById('print-timestamp').textContent = now.toLocaleString('id-ID');
+
+            renderTable();
+            setDefaultDateInModal();
+        });
+
+        function saveToLocalStorage() {
+            localStorage.setItem('daily_activities_pro_v2', JSON.stringify(activities));
+        }
+
+        function setDefaultDateInModal() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('input-tanggal').value = today;
+        }
+
+        function formatDateToDisplay(dateStr) {
+            if (!dateStr) return '';
+            if (dateStr.includes('-') && dateStr.split('-')[0].length === 2) return dateStr;
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('activity-table-body');
+            const emptyState = document.getElementById('empty-state');
+            const table = document.getElementById('activity-table');
+
+            const searchKey = document.getElementById('search-input').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('filter-status').value;
+            const dateFilter = document.getElementById('filter-date').value;
+
+            // Toggle search clear button
+            const clearSearchBtn = document.getElementById('clear-search-btn');
+            if (searchKey) {
+                clearSearchBtn.classList.remove('hidden');
+            } else {
+                clearSearchBtn.classList.add('hidden');
+            }
+
+            // Filter logic
+            const filtered = activities.filter(act => {
+                const matchesSearch = (act.solusi || '').toLowerCase().includes(searchKey) ||
+                                      (act.permasalahan || '').toLowerCase().includes(searchKey) ||
+                                      (act.user || '').toLowerCase().includes(searchKey) ||
+                                      (act.komputer || '').toLowerCase().includes(searchKey) ||
+                                      (act.perangkat || '').toLowerCase().includes(searchKey);
+                
+                const matchesStatus = statusFilter === 'ALL' || (act.status || '').toLowerCase() === statusFilter.toLowerCase();
+                
+                let matchesDate = true;
+                if (dateFilter) {
+                    matchesDate = act.tanggal === dateFilter;
+                }
+
+                return matchesSearch && matchesStatus && matchesDate;
+            });
+
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                table.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                table.classList.remove('hidden');
+
+                filtered.forEach((item) => {
+                    const tr = document.createElement('tr');
+                    
+                    // Formatting status badge inside exact excel look
+                    let statusClass = "text-slate-800";
+                    let statusBadge = item.status || '';
+                    if (item.status === 'selesai') {
+                        statusClass = "text-emerald-700 font-bold";
+                    } else if (item.status === 'proses') {
+                        statusClass = "text-amber-700 font-bold";
+                    } else if (item.status === 'pending') {
+                        statusClass = "text-rose-700 font-bold";
+                    }
+
+                    tr.className = "hover:bg-blue-50/40 transition duration-75";
+
+                    tr.innerHTML = `
+                        <td class="text-center font-mono text-[12px] whitespace-nowrap">${item.tanggalDisplay || formatDateToDisplay(item.tanggal)}</td>
+                        <td class="text-left">${escapeHtml(item.user || '')}</td>
+                        <td class="text-left font-mono text-[12px]">${escapeHtml(item.komputer || '')}</td>
+                        <td class="text-center">${escapeHtml(item.perangkat || '')}</td>
+                        <td class="text-left leading-relaxed">${escapeHtml(item.permasalahan || '')}</td>
+                        <td class="text-left leading-relaxed font-medium">${escapeHtml(item.solusi || '')}</td>
+                        <td class="text-center font-mono text-[12px]">${escapeHtml(item.jamInfo || '')}</td>
+                        <td class="text-center font-mono text-[12px]">${escapeHtml(item.selesai || '')}</td>
+                        <td class="text-center text-[12px] ${statusClass}">${escapeHtml(statusBadge)}</td>
+                        <td class="text-center no-print whitespace-nowrap bg-slate-50/50">
+                            <div class="flex items-center justify-center gap-1">
+                                <button onclick="editActivity('${item.id}')" class="text-blue-600 hover:text-blue-800 hover:bg-blue-100/60 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Edit">
+                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button onclick="deleteActivity('${item.id}')" class="text-rose-600 hover:text-rose-800 hover:bg-rose-100/60 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Hapus">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            updateStats();
+        }
+
+        function updateStats() {
+            const total = activities.length;
+            const selesai = activities.filter(a => (a.status || '').toLowerCase() === 'selesai').length;
+            const proses = activities.filter(a => (a.status || '').toLowerCase() === 'proses').length;
+            const pending = activities.filter(a => (a.status || '').toLowerCase() === 'pending').length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-selesai').textContent = selesai;
+            document.getElementById('stat-proses').textContent = proses;
+            document.getElementById('stat-pending').textContent = pending;
+
+            const rate = total > 0 ? Math.round((selesai / total) * 100) : 0;
+            document.getElementById('stat-selesai-rate').textContent = `${rate}%`;
+            document.getElementById('stat-total-sub').textContent = `${total > 0 ? '100' : '0'}%`;
+        }
+
+        function openModal(id = null) {
+            const modal = document.getElementById('activity-modal');
+            const modalTitle = document.getElementById('modal-title');
+            
+            if (id) {
+                const item = activities.find(a => a.id === id);
+                if (item) {
+                    document.getElementById('entry-id').value = item.id;
+                    document.getElementById('input-tanggal').value = item.tanggal || new Date().toISOString().split('T')[0];
+                    document.getElementById('input-status').value = item.status || 'selesai';
+                    document.getElementById('input-user').value = item.user || '';
+                    document.getElementById('input-komputer').value = item.komputer || '';
+                    document.getElementById('input-perangkat').value = item.perangkat || '';
+                    document.getElementById('input-permasalahan').value = item.permasalahan || '';
+                    document.getElementById('input-solusi').value = item.solusi || '';
+                    document.getElementById('input-jam-info').value = item.jamInfo || '';
+                    document.getElementById('input-selesai').value = item.selesai || '';
+                    modalTitle.textContent = `Edit Laporan Kegiatan`;
+                }
+            } else {
+                document.getElementById('activity-form').reset();
+                document.getElementById('entry-id').value = '';
+                setDefaultDateInModal();
+                modalTitle.textContent = `Input Daily Activity Baru`;
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('activity-modal').classList.add('hidden');
+        }
+
+        function saveActivity(event) {
+            event.preventDefault();
+            const id = document.getElementById('entry-id').value;
+            const tanggal = document.getElementById('input-tanggal').value;
+            const status = document.getElementById('input-status').value;
+            const user = document.getElementById('input-user').value.trim();
+            const komputer = document.getElementById('input-komputer').value.trim();
+            const perangkat = document.getElementById('input-perangkat').value.trim();
+            const permasalahan = document.getElementById('input-permasalahan').value.trim();
+            const solusi = document.getElementById('input-solusi').value.trim();
+            const jamInfo = document.getElementById('input-jam-info').value.trim();
+            const selesai = document.getElementById('input-selesai').value.trim();
+
+            const entryData = {
+                id: id || Date.now().toString(),
+                tanggal,
+                tanggalDisplay: formatDateToDisplay(tanggal),
+                user,
+                komputer,
+                perangkat,
+                permasalahan,
+                solusi,
+                jamInfo,
+                selesai,
+                status
+            };
+
+            if (id) {
+                const idx = activities.findIndex(a => a.id === id);
+                if (idx !== -1) {
+                    activities[idx] = entryData;
+                }
+            } else {
+                activities.unshift(entryData);
+            }
+
+            saveToLocalStorage();
+            renderTable();
+            closeModal();
+            showToast(id ? 'Data laporan berhasil diperbarui!' : 'Kegiatan baru berhasil disimpan!');
+        }
+
+        function editActivity(id) {
+            openModal(id);
+        }
+
+        function deleteActivity(id) {
+            activities = activities.filter(a => a.id !== id);
+            saveToLocalStorage();
+            renderTable();
+            showToast('Satu item laporan telah dihapus.');
+        }
+
+        function setNow(fieldId) {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById(fieldId).value = `${hh}:${mm}`;
+        }
+
+        function filterActivities() {
+            renderTable();
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            renderTable();
+        }
+
+        function resetFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('filter-status').value = 'ALL';
+            document.getElementById('filter-date').value = '';
+            renderTable();
+        }
+
+        function loadSampleData() {
+            activities = JSON.parse(JSON.stringify(SAMPLE_DATA));
+            saveToLocalStorage();
+            renderTable();
+            showToast('Contoh data sesuai screenshot berhasil dimuat!');
+        }
+
+        function confirmClearAll() {
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        function executeClearAll() {
+            activities = [];
+            saveToLocalStorage();
+            renderTable();
+            closeConfirmModal();
+            showToast('Semua data kegiatan telah dibersihkan.', true);
+        }
+
+        function exportToExcel() {
+            if (activities.length === 0) {
+                showToast('Tidak ada data kegiatan untuk diexport!', true);
+                return;
+            }
+
+            // Build raw array worksheet format
+            const wsData = [
+                ["DAILY ACTIVITY", "", "", "", "", "", "", "", ""],
+                [],
+                [
+                    "Tanggal", 
+                    "Nama user", 
+                    "nama komputer", 
+                    "jenis perangkat", 
+                    "permasalahan", 
+                    "solusi", 
+                    "jam info", 
+                    "selesai dikerjakan", 
+                    "status"
+                ]
+            ];
+
+            activities.forEach(item => {
+                wsData.push([
+                    item.tanggalDisplay || formatDateToDisplay(item.tanggal),
+                    item.user || '',
+                    item.komputer || '',
+                    item.perangkat || '',
+                    item.permasalahan || '',
+                    item.solusi || '',
+                    item.jamInfo || '',
+                    item.selesai || '',
+                    item.status || ''
+                ]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Merge Header Title (DAILY ACTIVITY across 9 columns)
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }
+            ];
+
+            // Proportional Widths for Excel Columns
+            ws['!cols'] = [
+                { wch: 14 }, // Tanggal
+                { wch: 18 }, // Nama user
+                { wch: 18 }, // nama komputer
+                { wch: 20 }, // jenis perangkat
+                { wch: 35 }, // permasalahan
+                { wch: 40 }, // solusi
+                { wch: 12 }, // jam info
+                { wch: 18 }, // selesai dikerjakan
+                { wch: 14 }  // status
+            ];
+
+            // Custom Row Heights
+            const rowHeights = [
+                { hpt: 32 }, // Title
+                { hpt: 12 }, // Spacer
+                { hpt: 26 }  // Table Headers
+            ];
+            activities.forEach(() => rowHeights.push({ hpt: 24 }));
+            ws['!rows'] = rowHeights;
+
+            XLSX.utils.book_append_sheet(wb, ws, "DAILY ACTIVITY");
+
+            const today = new Date().toISOString().split('T')[0];
+            const fileName = `Daily_Activity_Report_${today}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast('File Excel proporsional berhasil di-download!');
+        }
+
+        function copyTableToClipboard() {
+            if (activities.length === 0) {
+                showToast('Tidak ada data untuk disalin!', true);
+                return;
+            }
+
+            let textContent = "DAILY ACTIVITY\n\n";
+            textContent += "Tanggal\tNama user\tnama komputer\tjenis perangkat\tpermasalahan\tsolusi\tjam info\tselesai dikerjakan\tstatus\n";
+
+            activities.forEach(item => {
+                textContent += `${item.tanggalDisplay || formatDateToDisplay(item.tanggal)}\t${item.user || ''}\t${item.komputer || ''}\t${item.perangkat || ''}\t${item.permasalahan || ''}\t${item.solusi || ''}\t${item.jamInfo || ''}\t${item.selesai || ''}\t${item.status || ''}\n`;
+            });
+
+            const textarea = document.createElement('textarea');
+            textarea.value = textContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast('Tabel disalin! Tinggal Paste di Excel, WhatsApp, atau Email');
+            } catch (err) {
+                showToast('Gagal menyalin tabel', true);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // Custom Toast System
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIconBg = document.getElementById('toast-icon-bg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.textContent = message;
+            if (isError) {
+                toastIconBg.className = "w-7 h-7 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-sm";
+                toastIcon.className = "fa-solid fa-circle-exclamation";
+            } else {
+                toastIconBg.className = "w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm";
+                toastIcon.className = "fa-solid fa-circle-check";
+            }
+
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3200);
+        }
+
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
