@@ -64,18 +64,44 @@ async function callScriptPost(action, payload = {}) {
 }
 
 async function callFetch(url, options, action) {
-  const response = await fetch(url, options);
-  const text = await response.text();
-  let payload;
-  try {
-    payload = JSON.parse(text);
-  } catch (error) {
-    throw appsScriptResponseError(text, action);
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      const text = await response.text();
+      let payload;
+      try {
+        payload = JSON.parse(text);
+      } catch (error) {
+        throw appsScriptResponseError(text, action);
+      }
+      if (isLostPostPayload(options, action, payload)) {
+        throw appsScriptResponseError("Unexpected status payload from Apps Script POST", action);
+      }
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Apps Script request failed");
+      }
+      return payload;
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryAppsScript(error, attempt)) throw error;
+      await delay(350 * attempt);
+    }
   }
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error || "Apps Script request failed");
-  }
-  return payload;
+  throw lastError;
+}
+
+function isLostPostPayload(options, action, payload) {
+  return options && options.method === "POST" && action !== "status" && payload && payload.data && payload.data.api === "IT Support Daily Activity API";
+}
+
+function shouldRetryAppsScript(error, attempt) {
+  if (attempt >= 3) return false;
+  return error && (error.code === "APPS_SCRIPT_INVALID_RESPONSE" || error.code === "APPS_SCRIPT_LOST_POST_PAYLOAD" || /fetch failed/i.test(error.message || ""));
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function appsScriptResponseError(text, action) {
@@ -87,11 +113,15 @@ function appsScriptResponseError(text, action) {
     message = "Apps Script backend v2 belum dideploy: function doPost belum ada di deployment existing.";
   } else if (lowerText.includes("<!doctype html") || lowerText.includes("<html")) {
     message = "Apps Script mengembalikan halaman HTML, bukan JSON. Cek deployment Web App dan permission Apps Script.";
+  } else if (lowerText.includes("unexpected status payload")) {
+    message = "Apps Script POST kehilangan payload dan mengembalikan status, request diulang.";
   }
   if (action) message += " Action: " + action + ".";
   const error = new Error(message);
   error.statusCode = 502;
-  error.code = lowerText.includes("dopost") ? "APPS_SCRIPT_DOPOST_MISSING" : "APPS_SCRIPT_INVALID_RESPONSE";
+  error.code = lowerText.includes("unexpected status payload")
+    ? "APPS_SCRIPT_LOST_POST_PAYLOAD"
+    : lowerText.includes("dopost") ? "APPS_SCRIPT_DOPOST_MISSING" : "APPS_SCRIPT_INVALID_RESPONSE";
   return error;
 }
 
