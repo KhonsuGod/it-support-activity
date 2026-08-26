@@ -58,7 +58,7 @@ async function callScriptPost(action, payload = {}) {
   if (!apiSecret) throw new Error("APPS_SCRIPT_API_SECRET is not configured");
   return callFetch(getScriptUrl(), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(Object.assign({}, payload, { action, apiSecret }))
   }, action);
 }
