@@ -21,6 +21,14 @@ Public master-data endpoint tetap tersedia di Apps Script:
 
 Activity read/write dari browser melewati Vercel API. Secret hanya disimpan di server-side environment variable Vercel dan Script Properties Apps Script.
 
+## Operational Features
+
+- Dashboard memakai data real dari spreadsheet.
+- Pending/In Progress notification menampilkan pekerjaan terbuka milik staff. Admin melihat pekerjaan terbuka seluruh team.
+- Target follow-up dan target selesai diinput dari form detail dan disimpan di kolom `Notes` dengan format terstruktur agar schema `Activities` tetap kompatibel.
+- Activity dapat dishare langsung ke WhatsApp Haris PIC via tombol `WA`; pesan berisi ringkasan pekerjaan dan link activity. Link tetap membutuhkan login.
+- Admin dapat mengelola user serta menambah/menghapus department dan area dropdown dari halaman Admin.
+
 ## Google Assets
 
 Gunakan ID/URL berikut sesuai fungsinya:
@@ -84,11 +92,12 @@ SEED_USERS_JSON='[
   {"username":"davi","displayName":"Davi","password":"...","role":"staff"},
   {"username":"naufal","displayName":"Naufal","password":"...","role":"staff"},
   {"username":"henri","displayName":"Henri","password":"...","role":"staff"},
-  {"username":"haris","displayName":"Haris","password":"...","role":"admin"}
+  {"username":"haris","displayName":"Haris","password":"...","role":"staff"},
+  {"username":"admin","displayName":"Admin IT","password":"...","role":"admin"}
 ]' npm run db:seed
 ```
 
-`haris` diset sebagai `admin` karena PIC. Admin bisa membuat user baru, mengubah role, menonaktifkan user, dan reset password staff dari halaman Admin. Untuk production tanpa `DATABASE_URL`, user awal dapat diseed ke Apps Script melalui endpoint server-side `seedUsers` yang dilindungi `APPS_SCRIPT_API_SECRET`.
+Akun `admin` dipakai khusus untuk administrasi user. Haris tetap staff/PIC operasional. Admin bisa membuat user baru, mengubah role, menonaktifkan user, menghapus user, dan reset password staff dari halaman Admin. Untuk production tanpa `DATABASE_URL`, user awal dapat diseed ke Apps Script melalui endpoint server-side `seedUsers` yang dilindungi `APPS_SCRIPT_API_SECRET`.
 
 ## Apps Script Setup
 
@@ -158,9 +167,12 @@ Vercel API:
 - `GET /api/users` admin only
 - `POST /api/users` admin only
 - `PUT /api/users` admin only
+- `DELETE /api/users?id={id}` admin only
 - `GET /api/staff`
 - `GET /api/master`
 - `GET /api/departments`
+- `POST /api/reference` admin only
+- `DELETE /api/reference?type={department|area}&value={value}&department={department}` admin only
 - `GET /api/activities`
 - `POST /api/activities`
 - `PUT /api/activities`

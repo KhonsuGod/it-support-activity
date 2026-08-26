@@ -1,5 +1,5 @@
 const { requireAdmin } = require("./_auth");
-const { ensureUserSchema, hasDatabaseConfig, listUsers, updateUser, upsertUser } = require("./_db");
+const { deleteUser, ensureUserSchema, hasDatabaseConfig, listUsers, updateUser, upsertUser } = require("./_db");
 const { hashPassword } = require("./_password");
 const { callScriptPost, readBody, sendJson } = require("./_google");
 
@@ -50,6 +50,17 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (req.method === "DELETE") {
+      const id = Number(req.query.id);
+      if (!id) {
+        sendJson(res, 400, { success: false, error: "User ID is required" });
+        return;
+      }
+      await deleteUser(id);
+      sendJson(res, 200, { success: true, data: { deleted: true } });
+      return;
+    }
+
     sendJson(res, 405, { success: false, error: "Method not allowed" });
   } catch (error) {
     sendJson(res, error.statusCode || 500, { success: false, error: error.message || "Users API failed" });
@@ -91,6 +102,17 @@ async function handleScriptUsers(req, res) {
     if (body.role !== undefined) user.role = normalizeRole(body.role);
     if (body.isActive !== undefined) user.isActive = Boolean(body.isActive);
     const payload = await callScriptPost("updateUser", { user });
+    sendJson(res, 200, { success: true, data: payload.data });
+    return;
+  }
+
+  if (req.method === "DELETE") {
+    const id = String(req.query.id || "").trim();
+    if (!id) {
+      sendJson(res, 400, { success: false, error: "User ID is required" });
+      return;
+    }
+    const payload = await callScriptPost("deleteUser", { id });
     sendJson(res, 200, { success: true, data: payload.data });
     return;
   }

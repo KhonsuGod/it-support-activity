@@ -9,10 +9,12 @@
     staff: "/api/staff",
     master: "/api/master",
     departments: "/api/departments",
-    activities: "/api/activities"
+    activities: "/api/activities",
+    reference: "/api/reference"
   };
 
   const FALLBACK_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQ5HEhd_JPr6HtGo0Knnf4thEHK2kOqME_aFQRygi7NtM1SR6wQzhAFIk5oIks_NjM7g/exec";
+  const HARIS_WHATSAPP_NUMBER = "6285781220321";
   const MASTER_KEYS = ["shift", "plant", "department", "activityType", "supportMode", "productionImpact", "priority", "status", "deviceType", "category", "rootCauseCategory"];
   const FILTER_FIELDS = [
     ["search", "Search", "search"],
@@ -40,7 +42,7 @@
     currentUser: loadFilterPreference("itActivityCurrentUser"),
     adminUsers: [],
     charts: {},
-    pendingDeleteId: null
+    pendingDelete: null
   };
 
   const els = {};
@@ -60,14 +62,16 @@
   function cacheElements() {
     [
       "sync-state", "refresh-button", "metric-grid", "night-metric-grid", "night-top-department", "night-top-category",
+      "my-alert-count", "my-alert-list", "team-alert-panel", "team-alert-count", "team-alert-list",
       "activity-form", "activity-id", "submit-button", "cancel-edit-button", "department", "area", "itStaff", "plant",
-      "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "activity-table-body", "empty-state",
-      "report-table-body", "report-summary", "report-period", "toast", "confirm-dialog", "confirm-cancel", "confirm-ok",
+      "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "followUpTarget", "finishTarget", "notes", "activity-table-body", "empty-state",
+      "report-table-body", "report-summary", "report-period", "toast", "confirm-dialog", "confirm-title", "confirm-message", "confirm-cancel", "confirm-ok",
       "dashboard-date-from", "dashboard-date-to", "dashboard-reset", "export-button", "print-button", "login-screen",
       "login-form", "login-username", "login-password", "login-button", "login-error", "menu-toggle", "menu-panel",
       "theme-light", "theme-dark", "logout-button", "admin-tab", "admin-user-form", "admin-user-id", "admin-username",
       "admin-display-name", "admin-role", "admin-password", "admin-is-active", "admin-reset-form", "admin-save-user",
-      "admin-users-body"
+      "admin-users-body", "admin-department-form", "admin-department-name", "admin-department-list", "admin-area-form",
+      "admin-area-department", "admin-area-name", "admin-area-list"
     ].forEach((id) => {
       els[id] = document.getElementById(id);
     });
@@ -81,6 +85,12 @@
     els["logout-button"].addEventListener("click", logout);
     els["admin-user-form"].addEventListener("submit", saveUser);
     els["admin-reset-form"].addEventListener("click", resetAdminForm);
+    els["admin-department-form"].addEventListener("submit", saveDepartmentOption);
+    els["admin-area-form"].addEventListener("submit", saveAreaOption);
+    els["admin-area-department"].addEventListener("change", renderAdminReference);
+    document.querySelectorAll("[data-toggle-password]").forEach((button) => {
+      button.addEventListener("click", () => togglePassword(button));
+    });
     document.addEventListener("click", (event) => {
       if (!els["menu-panel"].contains(event.target) && event.target !== els["menu-toggle"]) {
         els["menu-panel"].classList.add("hidden");
@@ -120,7 +130,7 @@
       localStorage.setItem("itActivityCurrentUser", JSON.stringify(state.currentUser));
       showApp();
       await boot();
-      showView(defaultView());
+      showInitialView();
     } catch (error) {
       logout(false);
     }
@@ -147,7 +157,7 @@
       els["login-password"].value = "";
       showApp();
       await boot();
-      showView(defaultView());
+      showInitialView();
     } catch (error) {
       els["login-error"].textContent = error.message;
     } finally {
@@ -199,8 +209,34 @@
     document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
   }
 
+  function togglePassword(button) {
+    const input = document.getElementById(button.dataset.togglePassword);
+    if (!input) return;
+    const visible = input.type === "text";
+    input.type = visible ? "password" : "text";
+    button.textContent = visible ? "👁" : "⊘";
+    button.setAttribute("aria-label", visible ? "Tampilkan password" : "Sembunyikan password");
+    button.classList.toggle("is-visible", !visible);
+  }
+
   function defaultView() {
     return state.currentUser.role === "admin" ? "dashboard" : "add";
+  }
+
+  function showInitialView() {
+    const linkedActivity = getLinkedActivityId();
+    if (linkedActivity) {
+      state.activityFilters.search = linkedActivity;
+      localStorage.setItem("activityFilters", JSON.stringify(state.activityFilters));
+      buildFilterBar("activity-filter-bar", state.activityFilters, renderAll, "activityFilters");
+      showView("activities");
+      return;
+    }
+    showView(defaultView());
+  }
+
+  function getLinkedActivityId() {
+    return new URLSearchParams(window.location.search).get("activity") || "";
   }
 
   async function boot() {
@@ -220,6 +256,7 @@
       buildFilterBar("report-filter-bar", state.reportFilters, renderAll, "reportFilters");
       rebuildAreaFilters();
       syncDashboardFilterInputs();
+      renderAdminReference();
       await loadActivities(false);
       setSyncState("Online", "ok");
     } catch (error) {
@@ -390,7 +427,10 @@
     document.querySelectorAll(".view").forEach((section) => {
       section.classList.toggle("is-active", section.id === "view-" + view);
     });
-    if (view === "admin") loadUsers();
+    if (view === "admin") {
+      loadUsers();
+      renderAdminReference();
+    }
   }
 
   async function saveActivity(event) {
@@ -400,7 +440,7 @@
     const method = id ? "PUT" : "POST";
     const buttonText = els["submit-button"].textContent;
     els["submit-button"].disabled = true;
-    els["submit-button"].textContent = id ? "Updating..." : "Saving...";
+    els["submit-button"].textContent = "Menyimpan...";
     try {
       const response = await fetch(API.activities, {
         method,
@@ -427,6 +467,10 @@
     ["date", "itStaff", "shift", "plant", "department", "area", "user", "location", "assetName", "deviceType", "category", "activityType", "problem", "actionTaken", "supportMode", "productionImpact", "priority", "reportTime", "startTime", "finishTime", "rootCauseCategory", "rootCauseDetail", "status", "notes"].forEach((key) => {
       data[key] = (document.getElementById(key).value || "").trim();
     });
+    data.notes = composeNotes(data.notes, {
+      followUpTarget: els.followUpTarget.value,
+      finishTarget: els.finishTarget.value
+    });
     data.responseTime = calculateDuration(data.reportTime, data.startTime);
     data.resolutionTime = calculateDuration(data.startTime, data.finishTime);
     return data;
@@ -435,8 +479,8 @@
   function resetForm() {
     els["activity-form"].reset();
     els["activity-id"].value = "";
-    els["submit-button"].textContent = "Save Activity";
-    document.getElementById("form-title").textContent = "Add Activity";
+    els["submit-button"].textContent = "Simpan Activity";
+    document.getElementById("form-title").textContent = "Input Activity";
     setDefaultDate();
     populateAreaSelect("", "");
     applyDefaultFormValues();
@@ -449,29 +493,42 @@
     showView("add");
     els["activity-id"].value = activity.id;
     document.getElementById("form-title").textContent = "Edit Activity";
+    const noteMeta = parseNoteMeta(activity.notes);
     Object.keys(activity).forEach((key) => {
       const input = document.getElementById(key);
       if (input && key !== "area") input.value = activity[key] || "";
     });
+    els.notes.value = noteMeta.cleanNotes;
+    els.followUpTarget.value = noteMeta.followUpTarget;
+    els.finishTarget.value = noteMeta.finishTarget;
     populateAreaSelect(activity.department, activity.area);
     els["submit-button"].textContent = "Update Activity";
     updateDurationPreview();
   }
 
-  function confirmDelete(id) {
-    state.pendingDeleteId = id;
+  function confirmDelete(id, type) {
+    const deleteType = type || "activity";
+    state.pendingDelete = { id, type: deleteType };
+    els["confirm-title"].textContent = deleteType === "user" ? "Hapus User" : "Hapus Activity";
+    els["confirm-message"].textContent = deleteType === "user"
+      ? "User ini akan dihapus dari sistem login."
+      : "Activity ini akan dihapus dari spreadsheet.";
     els["confirm-dialog"].classList.remove("hidden");
   }
 
   function closeConfirm() {
-    state.pendingDeleteId = null;
+    state.pendingDelete = null;
     els["confirm-dialog"].classList.add("hidden");
   }
 
   async function executeDelete() {
-    if (!state.pendingDeleteId) return;
-    const id = state.pendingDeleteId;
+    if (!state.pendingDelete) return;
+    const { id, type } = state.pendingDelete;
     closeConfirm();
+    if (type === "user") {
+      await deleteUser(id);
+      return;
+    }
     try {
       const response = await fetch(API.activities + "?id=" + encodeURIComponent(id), {
         method: "DELETE",
@@ -540,15 +597,37 @@
       const tr = document.createElement("tr");
       [user.username, user.displayName, user.role, user.isActive ? "Active" : "Inactive", formatWibDateTime(user.updatedAt)].forEach((value) => appendCell(tr, value));
       const action = document.createElement("td");
+      action.className = "table-actions";
       const edit = document.createElement("button");
       edit.className = "secondary-button";
       edit.type = "button";
       edit.textContent = "Edit";
       edit.addEventListener("click", () => editUser(user));
+      const del = document.createElement("button");
+      del.className = "danger-button";
+      del.type = "button";
+      del.textContent = "Hapus";
+      del.addEventListener("click", () => confirmDelete(user.id, "user"));
       action.appendChild(edit);
+      action.appendChild(del);
       tr.appendChild(action);
       els["admin-users-body"].appendChild(tr);
     });
+  }
+
+  async function deleteUser(id) {
+    try {
+      const response = await fetch(API.users + "?id=" + encodeURIComponent(id), {
+        method: "DELETE",
+        headers: authHeaders({ Accept: "application/json" })
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal hapus user");
+      showToast("User berhasil dihapus.");
+      await loadUsers();
+    } catch (error) {
+      showToast(error.message, true);
+    }
   }
 
   function editUser(user) {
@@ -567,7 +646,115 @@
     els["admin-user-id"].value = "";
     els["admin-is-active"].checked = true;
     els["admin-password"].placeholder = "";
-    els["admin-save-user"].textContent = "Save User";
+    els["admin-save-user"].textContent = "Simpan User";
+  }
+
+  async function saveDepartmentOption(event) {
+    event.preventDefault();
+    const value = els["admin-department-name"].value.trim().toUpperCase();
+    if (!value) {
+      showToast("Nama department wajib diisi.", true);
+      return;
+    }
+    await saveReference({ type: "department", value });
+    els["admin-department-name"].value = "";
+  }
+
+  async function saveAreaOption(event) {
+    event.preventDefault();
+    const department = els["admin-area-department"].value;
+    const value = els["admin-area-name"].value.trim().toUpperCase();
+    if (!department || !value) {
+      showToast("Department dan area wajib diisi.", true);
+      return;
+    }
+    await saveReference({ type: "area", department, value });
+    els["admin-area-name"].value = "";
+  }
+
+  async function saveReference(option) {
+    try {
+      const response = await fetch(API.reference, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
+        body: JSON.stringify(option)
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal simpan master data");
+      showToast("Master data berhasil disimpan.");
+      await reloadReferenceData();
+    } catch (error) {
+      showToast(error.message, true);
+    }
+  }
+
+  async function deleteReference(option) {
+    try {
+      const params = new URLSearchParams(option);
+      const response = await fetch(API.reference + "?" + params.toString(), {
+        method: "DELETE",
+        headers: authHeaders({ Accept: "application/json" })
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal hapus master data");
+      showToast("Master data berhasil dihapus.");
+      await reloadReferenceData();
+    } catch (error) {
+      showToast(error.message, true);
+    }
+  }
+
+  async function reloadReferenceData() {
+    const [master, departments] = await Promise.all([
+      fetchJson(API.master, "master"),
+      fetchJson(API.departments, "departments")
+    ]);
+    state.master = normalizeMaster(master || {});
+    state.departments = departments || {};
+    populateFormOptions();
+    buildFilterBar("activity-filter-bar", state.activityFilters, renderAll, "activityFilters");
+    buildFilterBar("report-filter-bar", state.reportFilters, renderAll, "reportFilters");
+    rebuildAreaFilters();
+    renderAdminReference();
+    renderAll();
+  }
+
+  function renderAdminReference() {
+    if (!els["admin-department-list"]) return;
+    const currentDepartment = els["admin-area-department"].value;
+    populateSelect(els["admin-area-department"], state.master.department || [], "Pilih department");
+    if ((state.master.department || []).includes(currentDepartment)) els["admin-area-department"].value = currentDepartment;
+    renderReferenceChips(els["admin-department-list"], state.master.department || [], (department) => {
+      deleteReference({ type: "department", value: department });
+    });
+    const department = els["admin-area-department"].value;
+    renderReferenceChips(els["admin-area-list"], state.departments[department] || [], (area) => {
+      deleteReference({ type: "area", department, value: area });
+    });
+  }
+
+  function renderReferenceChips(container, items, onDelete) {
+    removeChildren(container);
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "alert-empty";
+      empty.textContent = "Belum ada data.";
+      container.appendChild(empty);
+      return;
+    }
+    items.forEach((item) => {
+      const chip = document.createElement("span");
+      chip.className = "data-chip";
+      const label = document.createElement("span");
+      label.textContent = item;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.title = "Hapus";
+      button.textContent = "x";
+      button.addEventListener("click", () => onDelete(item));
+      chip.append(label, button);
+      container.appendChild(chip);
+    });
   }
 
   function updateDurationPreview() {
@@ -695,8 +882,64 @@
       ["Average Response", summary.avgResponse, "Start Time - Report Time"],
       ["Average Resolution", summary.avgResolution, "Finish Time - Start Time"]
     ]);
+    renderWorkAlerts(data);
     renderCharts(data);
     renderNightAnalytics(data);
+  }
+
+  function renderWorkAlerts(data) {
+    const openItems = data.filter((item) => isOpenStatus(item.status));
+    const myItems = openItems.filter((item) => equals(item.itStaff, state.currentUser.displayName) || equals(item.itStaff, state.currentUser.username));
+    renderAlertList(els["my-alert-list"], myItems.slice(0, 8));
+    els["my-alert-count"].textContent = String(myItems.length);
+
+    const isAdmin = state.currentUser.role === "admin";
+    els["team-alert-panel"].classList.toggle("hidden", !isAdmin);
+    if (isAdmin) {
+      renderAlertList(els["team-alert-list"], openItems.slice(0, 12), true);
+      els["team-alert-count"].textContent = String(openItems.length);
+    }
+  }
+
+  function renderAlertList(container, items, showStaff) {
+    removeChildren(container);
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "alert-empty";
+      empty.textContent = "Tidak ada pending/proses.";
+      container.appendChild(empty);
+      return;
+    }
+    items.forEach((item) => {
+      const meta = parseNoteMeta(item.notes);
+      const targetLabel = equals(item.status, "Pending") ? "Target gas" : "Target selesai";
+      const targetValue = equals(item.status, "Pending") ? meta.followUpTarget : meta.finishTarget;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "alert-item";
+      row.addEventListener("click", () => openActivityLink(item.id));
+
+      const title = document.createElement("strong");
+      title.textContent = (showStaff ? item.itStaff + " - " : "") + (item.department || "-") + " / " + (item.area || "-");
+      const desc = document.createElement("span");
+      desc.textContent = item.problem || "-";
+      const metaLine = document.createElement("small");
+      metaLine.textContent = item.status + " | " + targetLabel + ": " + (displayDateTimeLocal(targetValue) || "belum diisi");
+
+      row.append(title, desc, metaLine);
+      container.appendChild(row);
+    });
+  }
+
+  function isOpenStatus(status) {
+    return equals(status, "Pending") || equals(status, "In Progress");
+  }
+
+  function openActivityLink(id) {
+    state.activityFilters.search = id;
+    localStorage.setItem("activityFilters", JSON.stringify(state.activityFilters));
+    buildFilterBar("activity-filter-bar", state.activityFilters, renderAll, "activityFilters");
+    showView("activities");
   }
 
   function renderNightAnalytics(data) {
@@ -734,15 +977,15 @@
   }
 
   function renderCharts(data) {
-    drawChart("chart-shift", "bar", countBy(data, "shift"), ["#0f5e9c", "#6f7f1d", "#25364a"]);
-    drawChart("chart-support-mode", "doughnut", countBy(data, "supportMode"), ["#16834f", "#0f5e9c", "#b26b00", "#667085"]);
-    drawChart("chart-department", "bar", topEntries(countBy(data, "department"), 10), ["#0f5e9c"]);
-    drawChart("chart-category", "bar", topEntries(countBy(data, "category"), 10), ["#6f7f1d"]);
+    drawChart("chart-shift", "bar", orderedCounts(data, "shift", ["Morning", "Evening", "Night"]), ["#0f5e9c"], { indexAxis: "y" });
+    drawChart("chart-support-mode", "bar", orderedCounts(data, "supportMode", ["On-Site", "Remote", "Hybrid", "N/A"]), ["#16834f"], { indexAxis: "y" });
+    drawChart("chart-department", "bar", topEntries(countBy(data, "department"), 10), ["#0f5e9c"], { indexAxis: "y" });
+    drawChart("chart-category", "bar", topEntries(countBy(data, "category"), 10), ["#6f7f1d"], { indexAxis: "y" });
     drawChart("chart-impact", "doughnut", countBy(data, "productionImpact"), ["#16834f", "#77a611", "#b26b00", "#d55a2a", "#c03744"]);
     drawChart("chart-plant", "doughnut", countBy(data, "plant"), ["#0f5e9c", "#16834f"]);
   }
 
-  function drawChart(id, type, source, colors) {
+  function drawChart(id, type, source, colors, options) {
     if (!window.Chart) return;
     const canvas = document.getElementById(id);
     const labels = Object.keys(source);
@@ -754,16 +997,37 @@
         labels: labels.length ? labels : ["No Data"],
         datasets: [{
           data: values.length ? values : [0],
-          backgroundColor: colors,
+          backgroundColor: (labels.length ? labels : ["No Data"]).map((label, index) => colors[index % colors.length]),
           borderWidth: 0
         }]
       },
-      options: {
+      options: Object.assign({
+        animation: false,
         maintainAspectRatio: false,
-        plugins: { legend: { display: type !== "bar", position: "bottom" } },
-        scales: type === "bar" ? { y: { beginAtZero: true, ticks: { precision: 0 } } } : {}
-      }
+        responsive: true,
+        plugins: {
+          legend: { display: type !== "bar", position: "bottom", labels: { boxWidth: 10, padding: 12 } },
+          tooltip: { displayColors: false }
+        },
+        scales: type === "bar" ? {
+          x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(102, 112, 133, 0.16)" } },
+          y: { grid: { display: false }, ticks: { autoSkip: false } }
+        } : {}
+      }, options || {})
     });
+  }
+
+  function orderedCounts(data, key, order) {
+    if (!data.length) return {};
+    const source = countBy(data, key);
+    const output = {};
+    order.forEach((label) => {
+      output[label] = source[label] || 0;
+    });
+    Object.keys(source).forEach((label) => {
+      if (output[label] === undefined) output[label] = source[label];
+    });
+    return output;
   }
 
   function renderActivityTable() {
@@ -791,17 +1055,43 @@
       edit.title = "Edit";
       edit.textContent = "Edit";
       edit.addEventListener("click", () => editActivity(item.id));
+      const wa = document.createElement("button");
+      wa.type = "button";
+      wa.title = "Share WhatsApp";
+      wa.textContent = "WA";
+      wa.addEventListener("click", () => shareActivityWhatsApp(item));
       const del = document.createElement("button");
       del.type = "button";
       del.title = "Delete";
       del.textContent = "Del";
       del.addEventListener("click", () => confirmDelete(item.id));
-      actions.append(edit, del);
+      actions.append(edit, wa, del);
       actionTd.appendChild(actions);
       tr.appendChild(actionTd);
       els["activity-table-body"].appendChild(tr);
     });
     els["empty-state"].classList.toggle("is-visible", rows.length === 0);
+  }
+
+  function shareActivityWhatsApp(item) {
+    const lines = [
+      "Pak Haris, activity sudah saya input:",
+      "ID: " + (item.id || "-"),
+      "Staff: " + (item.itStaff || "-"),
+      "Department: " + (item.department || "-") + (item.area ? " / " + item.area : ""),
+      "Problem: " + (item.problem || "-"),
+      "Action: " + (item.actionTaken || "-"),
+      "Status: " + (item.status || "-"),
+      "Link: " + activityUrl(item.id)
+    ];
+    window.open("https://wa.me/" + HARIS_WHATSAPP_NUMBER + "?text=" + encodeURIComponent(lines.join("\n")), "_blank", "noopener");
+  }
+
+  function activityUrl(id) {
+    const url = new URL(window.location.href);
+    url.search = "?activity=" + encodeURIComponent(id || "");
+    url.hash = "";
+    return url.toString();
   }
 
   function renderReport() {
@@ -1010,6 +1300,47 @@
   function formatTimes(item) {
     const times = [item.reportTime, item.startTime, item.finishTime].filter(Boolean).join(" / ");
     return (times ? times + " WIB" : "") + (item.responseTime || item.resolutionTime ? " | R " + (item.responseTime || "-") + " / " + (item.resolutionTime || "-") : "");
+  }
+
+  function composeNotes(notes, meta) {
+    const cleanNotes = parseNoteMeta(notes).cleanNotes.trim();
+    const lines = [];
+    if (meta.followUpTarget) lines.push("Target Gas: " + meta.followUpTarget);
+    if (meta.finishTarget) lines.push("Target Selesai: " + meta.finishTarget);
+    if (!lines.length) return cleanNotes;
+    return lines.join("\n") + (cleanNotes ? "\n\n" + cleanNotes : "");
+  }
+
+  function parseNoteMeta(notes) {
+    const lines = String(notes || "").split(/\r?\n/);
+    const meta = { followUpTarget: "", finishTarget: "", cleanNotes: "" };
+    const clean = [];
+    lines.forEach((line) => {
+      const follow = line.match(/^Target Gas:\s*(.+)$/i);
+      const finish = line.match(/^Target Selesai:\s*(.+)$/i);
+      if (follow) {
+        meta.followUpTarget = normalizeDateTimeLocal(follow[1]);
+      } else if (finish) {
+        meta.finishTarget = normalizeDateTimeLocal(finish[1]);
+      } else {
+        clean.push(line);
+      }
+    });
+    meta.cleanNotes = clean.join("\n").trim();
+    return meta;
+  }
+
+  function normalizeDateTimeLocal(value) {
+    const text = String(value || "").trim();
+    const match = text.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+    return match ? match[1] + "T" + match[2] : "";
+  }
+
+  function displayDateTimeLocal(value) {
+    const normalized = normalizeDateTimeLocal(value);
+    if (!normalized) return "";
+    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})$/);
+    return match ? match[3] + "/" + match[2] + "/" + match[1] + " " + match[4] + " WIB" : normalized + " WIB";
   }
 
   function statusClass(status) {

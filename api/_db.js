@@ -63,6 +63,22 @@ async function listUsers() {
   );
 }
 
+async function findUserById(id) {
+  const rows = await query(
+    "SELECT id, username, display_name AS displayName, role, is_active AS isActive FROM users WHERE id = :id LIMIT 1",
+    { id }
+  );
+  return rows[0] || null;
+}
+
+async function countActiveAdmins(excludeId) {
+  const rows = await query(
+    "SELECT COUNT(*) AS total FROM users WHERE role = 'admin' AND is_active = 1 AND id <> :excludeId",
+    { excludeId: excludeId || 0 }
+  );
+  return Number(rows[0] && rows[0].total ? rows[0].total : 0);
+}
+
 async function upsertUser(user) {
   await query(
     `INSERT INTO users (username, display_name, password_hash, role, is_active)
@@ -77,6 +93,22 @@ async function upsertUser(user) {
 }
 
 async function updateUser(id, fields) {
+  const current = await findUserById(id);
+  if (!current) {
+    const error = new Error("User not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  const nextRole = fields.role === undefined ? current.role : fields.role;
+  const nextActive = fields.isActive === undefined ? Boolean(current.isActive) : Boolean(fields.isActive);
+  if (current.role === "admin" && Boolean(current.isActive) && (nextRole !== "admin" || !nextActive)) {
+    const remainingAdmins = await countActiveAdmins(id);
+    if (remainingAdmins < 1) {
+      const error = new Error("At least one active admin is required");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
   const sets = [];
   const params = { id };
   ["displayName", "passwordHash", "role", "isActive"].forEach((key) => {
@@ -94,7 +126,26 @@ async function updateUser(id, fields) {
   await query(`UPDATE users SET ${sets.join(", ")} WHERE id = :id`, params);
 }
 
+async function deleteUser(id) {
+  const current = await findUserById(id);
+  if (!current) {
+    const error = new Error("User not found");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (current.role === "admin" && Boolean(current.isActive)) {
+    const remainingAdmins = await countActiveAdmins(id);
+    if (remainingAdmins < 1) {
+      const error = new Error("At least one active admin is required");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+  await query("DELETE FROM users WHERE id = :id", { id });
+}
+
 module.exports = {
+  deleteUser,
   ensureUserSchema,
   findUserByUsername,
   hasDatabaseConfig,

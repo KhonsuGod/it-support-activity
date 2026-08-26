@@ -1,11 +1,15 @@
 const DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQ5HEhd_JPr6HtGo0Knnf4thEHK2kOqME_aFQRygi7NtM1SR6wQzhAFIk5oIks_NjM7g/exec";
 
 function getScriptUrl() {
-  return process.env.APPS_SCRIPT_URL || DEFAULT_APPS_SCRIPT_URL;
+  return stripWrappingQuotes(process.env.APPS_SCRIPT_URL) || DEFAULT_APPS_SCRIPT_URL;
 }
 
 function getApiSecret() {
-  return process.env.APPS_SCRIPT_API_SECRET || "";
+  return stripWrappingQuotes(process.env.APPS_SCRIPT_API_SECRET) || "";
+}
+
+function stripWrappingQuotes(value) {
+  return String(value || "").trim().replace(/^["']|["']$/g, "");
 }
 
 function sendJson(res, statusCode, payload) {

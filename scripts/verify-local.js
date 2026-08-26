@@ -51,7 +51,7 @@ async function get(action) {
   const hash = await password.hashPassword("test-login-password");
   assert.equal(await password.verifyPassword("test-login-password", hash), true);
   assert.equal(await password.verifyPassword("wrong", hash), false);
-  const token = auth.createToken({ id: 1, username: "haris", displayName: "Haris", role: "admin" });
+  const token = auth.createToken({ id: 1, username: "admin", displayName: "Admin IT", role: "admin" });
   assert.equal(auth.verifyToken(token).role, "admin");
   assert.equal(auth.verifyToken("bad.token"), null);
 
@@ -86,10 +86,12 @@ async function get(action) {
   assert.deepEqual(master.shift, ["Morning", "Evening", "Night"]);
   assert.equal(master.plant.includes("Tigaraksa (Bolang)"), true);
   assert.equal(master.plant.includes("Jatiuwung (Jati)"), true);
+  assert.equal(master.department.includes("HSE"), true);
+  assert.equal(master.department.includes("POS SECURITY"), true);
 
   const departments = await get("departments");
-  assert.deepEqual(departments.PRODUKSI, ["EXTRUDER", "CRUSHER", "BARCODE", "PROSES 1", "PROSES 2", "ADMIN", "PM", "ADMIN CMS"]);
-  assert.deepEqual(departments.WAREHOUSE, ["WH SCAN IN", "WH SCAN OUT", "BAHAN BAKU"]);
+  assert.deepEqual(departments.PRODUKSI, ["EXTRUDER", "CRUSHER", "BARCODE", "PROSES 1", "PROSES 2", "ADMIN", "PM", "PM1", "PM2", "ADMIN CMS"]);
+  assert.deepEqual(departments.WAREHOUSE, ["WH SCAN IN", "WH SCAN OUT", "BAHAN BAKU", "OFFICE WAREHOUSE"]);
 
   console.log("LOCAL VERIFICATION PASS");
 })().catch((error) => {

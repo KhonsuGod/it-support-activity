@@ -16,11 +16,19 @@
 <body>
   <section class="login-screen" id="login-screen">
     <form class="login-card" id="login-form" autocomplete="off">
-      <div class="brand-mark">IT</div>
-      <h1>IT Support Activity</h1>
-      <p>Gunakan akun IT Support untuk mencatat dan memantau aktivitas harian.</p>
+      <div class="company-logo-wrap">
+        <img src="assets/camilo.png" alt="Camiloplas logo" class="company-logo">
+      </div>
+      <span class="login-unit">GMO Department</span>
+      <h1>Camiloplas Jaya Makmur</h1>
+      <p>IT Support Daily Activity</p>
       <label>Username <span>*</span><input id="login-username" name="username" type="text" required autofocus></label>
-      <label>Password <span>*</span><input id="login-password" name="password" type="password" required></label>
+      <label>Password <span>*</span>
+        <span class="password-field">
+          <input id="login-password" name="password" type="password" required>
+          <button class="password-toggle" type="button" data-toggle-password="login-password" aria-label="Tampilkan password">👁</button>
+        </span>
+      </label>
       <button class="primary-button" type="submit" id="login-button">Login</button>
       <small id="login-error"></small>
     </form>
@@ -31,14 +39,14 @@
       <div class="brand-mark">IT</div>
       <div>
         <h1>IT Support Daily Activity</h1>
-        <p>Manufacturing support operations</p>
+        <p>Operasional support pabrik</p>
       </div>
     </div>
     <nav class="main-nav" id="main-nav" aria-label="Main navigation">
       <button class="nav-tab is-active" data-view="dashboard">Dashboard</button>
-      <button class="nav-tab" data-view="add">Add Activity</button>
-      <button class="nav-tab" data-view="activities">Activities</button>
-      <button class="nav-tab" data-view="reports">Reports</button>
+      <button class="nav-tab" data-view="add">Input</button>
+      <button class="nav-tab" data-view="activities">Aktivitas</button>
+      <button class="nav-tab" data-view="reports">Laporan</button>
       <button class="nav-tab hidden" id="admin-tab" data-view="admin">Admin</button>
     </nav>
     <div class="header-actions">
@@ -70,30 +78,47 @@
 
       <div class="metric-grid" id="metric-grid"></div>
 
+      <section class="work-alerts" id="work-alerts">
+        <div class="alert-column">
+          <div class="panel-heading">
+            <h3>Pending / Proses Saya</h3>
+            <span id="my-alert-count">0</span>
+          </div>
+          <div class="alert-list" id="my-alert-list"></div>
+        </div>
+        <div class="alert-column hidden" id="team-alert-panel">
+          <div class="panel-heading">
+            <h3>Pending / Proses Team</h3>
+            <span id="team-alert-count">0</span>
+          </div>
+          <div class="alert-list" id="team-alert-list"></div>
+        </div>
+      </section>
+
       <div class="analytics-grid">
-        <section class="panel">
+        <section class="panel chart-panel compact-chart">
           <h3>Activity by Shift</h3>
-          <canvas id="chart-shift" height="180"></canvas>
+          <div class="chart-frame"><canvas id="chart-shift"></canvas></div>
         </section>
-        <section class="panel">
+        <section class="panel chart-panel compact-chart">
           <h3>Support Mode</h3>
-          <canvas id="chart-support-mode" height="180"></canvas>
+          <div class="chart-frame"><canvas id="chart-support-mode"></canvas></div>
         </section>
-        <section class="panel">
+        <section class="panel chart-panel">
           <h3>Activity by Department</h3>
-          <canvas id="chart-department" height="220"></canvas>
+          <div class="chart-frame"><canvas id="chart-department"></canvas></div>
         </section>
-        <section class="panel">
+        <section class="panel chart-panel">
           <h3>Category</h3>
-          <canvas id="chart-category" height="220"></canvas>
+          <div class="chart-frame"><canvas id="chart-category"></canvas></div>
         </section>
-        <section class="panel">
+        <section class="panel chart-panel compact-chart">
           <h3>Production Impact</h3>
-          <canvas id="chart-impact" height="180"></canvas>
+          <div class="chart-frame"><canvas id="chart-impact"></canvas></div>
         </section>
-        <section class="panel">
+        <section class="panel chart-panel compact-chart">
           <h3>Plant</h3>
-          <canvas id="chart-plant" height="180"></canvas>
+          <div class="chart-frame"><canvas id="chart-plant"></canvas></div>
         </section>
       </div>
 
@@ -121,12 +146,13 @@
     <section class="view" id="view-add" aria-labelledby="form-title">
       <div class="section-heading">
         <div>
-          <h2 id="form-title">Add Activity</h2>
-          <p>Isi department yang bermasalah, masalahnya, dan tindakan yang dilakukan.</p>
+          <h2 id="form-title">Input Activity</h2>
+          <p>Pilih departemen, tulis masalah, lalu simpan.</p>
         </div>
       </div>
       <form id="activity-form" class="activity-form simple-form" autocomplete="off">
         <input type="hidden" id="activity-id">
+        <div class="form-section-title">Aktivitas utama</div>
         <div class="quick-grid">
           <label>Department <span>*</span><select id="department" name="department" required></select></label>
           <label>Area / Sub Department <select id="area" name="area"></select></label>
@@ -134,10 +160,12 @@
           <label>Asset Name <input id="assetName" name="assetName" type="text" maxlength="160"></label>
           <label>Status <span>*</span><select id="status" name="status" required></select></label>
         </div>
-        <label class="span-2">Problem <span>*</span><textarea id="problem" name="problem" rows="4" required placeholder="Printer Zebra ribbon tersangkut."></textarea></label>
-        <label class="span-2">Action Taken <span>*</span><textarea id="actionTaken" name="actionTaken" rows="4" required placeholder="Melakukan pengecekan dan pemasangan ulang ribbon hingga printer dapat digunakan kembali."></textarea></label>
+        <div class="problem-grid">
+          <label>Problem <span>*</span><textarea id="problem" name="problem" rows="5" required placeholder="Printer Zebra ribbon tersangkut."></textarea></label>
+          <label>Action Taken <span>*</span><textarea id="actionTaken" name="actionTaken" rows="5" required placeholder="Cek dan pasang ulang ribbon sampai printer bisa digunakan."></textarea></label>
+        </div>
         <details class="advanced-fields">
-          <summary>Detail laporan</summary>
+          <summary>Detail waktu dan teknis</summary>
           <div class="form-grid">
             <label>Date <span>*</span><input id="date" name="date" type="date" required></label>
             <label>IT Staff <span>*</span><select id="itStaff" name="itStaff" required></select></label>
@@ -155,14 +183,16 @@
             <label>Finish Time WIB <input id="finishTime" name="finishTime" type="text" inputmode="numeric" pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$" placeholder="22:50"></label>
             <label>Response Time <input id="responseTime" name="responseTime" type="text" readonly></label>
             <label>Resolution Time <input id="resolutionTime" name="resolutionTime" type="text" readonly></label>
+            <label>Target Follow-up <input id="followUpTarget" name="followUpTarget" type="datetime-local"></label>
+            <label>Target Selesai <input id="finishTarget" name="finishTarget" type="datetime-local"></label>
             <label>Root Cause Category <select id="rootCauseCategory" name="rootCauseCategory"></select></label>
           </div>
           <label class="span-2">Root Cause Detail <textarea id="rootCauseDetail" name="rootCauseDetail" rows="3"></textarea></label>
           <label class="span-2">Notes <textarea id="notes" name="notes" rows="3"></textarea></label>
         </details>
         <div class="form-actions">
-          <button class="secondary-button" type="button" id="cancel-edit-button">Cancel</button>
-          <button class="primary-button" type="submit" id="submit-button">Save Activity</button>
+          <button class="secondary-button" type="button" id="cancel-edit-button">Batal</button>
+          <button class="primary-button" type="submit" id="submit-button">Simpan Activity</button>
         </div>
       </form>
     </section>
@@ -171,7 +201,7 @@
       <div class="section-heading">
         <div>
           <h2 id="admin-title">Admin</h2>
-          <p>Kelola user login dan reset password staff.</p>
+          <p>Kelola akun, role, status, dan password staff.</p>
         </div>
       </div>
       <section class="admin-layout">
@@ -181,12 +211,17 @@
             <label>Username <span>*</span><input id="admin-username" type="text" required></label>
             <label>Display Name <span>*</span><input id="admin-display-name" type="text" required></label>
             <label>Role <span>*</span><select id="admin-role" required><option value="staff">staff</option><option value="admin">admin</option></select></label>
-            <label>Password Baru <input id="admin-password" type="password" minlength="8"></label>
+            <label>Password Baru
+              <span class="password-field">
+                <input id="admin-password" type="password" minlength="8">
+                <button class="password-toggle" type="button" data-toggle-password="admin-password" aria-label="Tampilkan password">👁</button>
+              </span>
+            </label>
             <label class="checkbox-line"><input id="admin-is-active" type="checkbox" checked> Active</label>
           </div>
           <div class="form-actions">
             <button class="secondary-button" type="button" id="admin-reset-form">Reset</button>
-            <button class="primary-button" type="submit" id="admin-save-user">Save User</button>
+            <button class="primary-button" type="submit" id="admin-save-user">Simpan User</button>
           </div>
         </form>
         <div class="table-wrap">
@@ -203,6 +238,33 @@
             </thead>
             <tbody id="admin-users-body"></tbody>
           </table>
+        </div>
+      </section>
+      <section class="admin-master-panel">
+        <div class="section-heading">
+          <div>
+            <h2>Master Data</h2>
+            <p>Tambah atau hapus department dan area dropdown.</p>
+          </div>
+        </div>
+        <div class="master-admin-grid">
+          <form id="admin-department-form" class="activity-form compact-admin-form" autocomplete="off">
+            <h3>Department</h3>
+            <label>Nama Department <input id="admin-department-name" type="text" placeholder="Contoh: HSE"></label>
+            <div class="form-actions">
+              <button class="primary-button" type="submit">Tambah</button>
+            </div>
+            <div class="chip-list" id="admin-department-list"></div>
+          </form>
+          <form id="admin-area-form" class="activity-form compact-admin-form" autocomplete="off">
+            <h3>Area / Sub Department</h3>
+            <label>Department <select id="admin-area-department"></select></label>
+            <label>Nama Area <input id="admin-area-name" type="text" placeholder="Contoh: PM1"></label>
+            <div class="form-actions">
+              <button class="primary-button" type="submit">Tambah</button>
+            </div>
+            <div class="chip-list" id="admin-area-list"></div>
+          </form>
         </div>
       </section>
     </section>

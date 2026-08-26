@@ -77,7 +77,7 @@ const HEADER_TO_KEY = {
 const DEFAULT_MASTER = {
   plant: ["Tigaraksa (Bolang)", "Jatiuwung (Jati)"],
   shift: ["Morning", "Evening", "Night"],
-  department: ["HRD - GA", "GMO (IT)", "FINANCE", "ACCOUNTING", "MAINTENANCE", "SPAREPART", "MARKETING", "PURCHASING", "PRODUKSI", "QC", "QA", "PPIC", "RND", "WAREHOUSE", "PRINTING", "WORKSHOP", "POS SECURITY"],
+  department: ["HRD - GA", "GMO (IT)", "FINANCE", "ACCOUNTING", "MAINTENANCE", "SPAREPART", "MARKETING", "PURCHASING", "PRODUKSI", "QC", "QA", "PPIC", "RND", "WAREHOUSE", "PRINTING", "WORKSHOP", "HSE", "POS SECURITY"],
   activityType: ["Incident", "Service Request", "Preventive Maintenance", "Routine Check", "Installation / Setup", "Inventory", "Administration", "Other"],
   supportMode: ["On-Site", "Remote", "Hybrid", "N/A"],
   productionImpact: ["No Impact", "Low", "Medium", "High", "Production Stop"],
@@ -107,16 +107,21 @@ const DEFAULT_DEPARTMENT_MAPPING = {
   "SPAREPART": [],
   "MARKETING": [],
   "PURCHASING": [],
-  "PRODUKSI": ["EXTRUDER", "CRUSHER", "BARCODE", "PROSES 1", "PROSES 2", "ADMIN", "PM", "ADMIN CMS"],
+  "PRODUKSI": ["EXTRUDER", "CRUSHER", "BARCODE", "PROSES 1", "PROSES 2", "ADMIN", "PM", "PM1", "PM2", "ADMIN CMS"],
   "QC": [],
   "QA": [],
   "PPIC": [],
   "RND": [],
-  "WAREHOUSE": ["WH SCAN IN", "WH SCAN OUT", "BAHAN BAKU"],
+  "WAREHOUSE": ["WH SCAN IN", "WH SCAN OUT", "BAHAN BAKU", "OFFICE WAREHOUSE"],
   "PRINTING": [],
   "WORKSHOP": [],
+  "HSE": [],
   "POS SECURITY": []
 };
+
+const OBSOLETE_DEPARTMENT_MAPPINGS = [
+  { department: "WAREHOUSE", area: "PM1-PM2" }
+];
 
 function doGet(e) {
   try {
@@ -142,7 +147,10 @@ function doPost(e) {
     if (action === "listUsers") return jsonResponse({ success: true, data: listStoredUsers() });
     if (action === "createUser") return jsonResponse({ success: true, data: createStoredUser(body.user || {}) });
     if (action === "updateUser") return jsonResponse({ success: true, data: updateStoredUser(body.user || {}) });
+    if (action === "deleteUser") return jsonResponse({ success: true, data: deleteStoredUser(body.id || "") });
     if (action === "seedUsers") return jsonResponse({ success: true, data: seedStoredUsers(body.users || []) });
+    if (action === "addReferenceOption") return jsonResponse({ success: true, data: addReferenceOption(body.option || {}) });
+    if (action === "deleteReferenceOption") return jsonResponse({ success: true, data: deleteReferenceOption(body.option || {}) });
     if (action === "activities") return jsonResponse({ success: true, data: getActivities(body.filters || {}) });
     if (action === "createActivity") return jsonResponse({ success: true, data: createActivity(body.activity || {}) });
     if (action === "updateActivity") return jsonResponse({ success: true, data: updateActivity(body.activity || {}) });
@@ -482,7 +490,7 @@ function getMasterData() {
     const key = toCamelCase(header);
     if (!key) return;
     const options = values.slice(1).map(function(row) { return trimString(row[colIndex]); }).filter(Boolean);
-    if (options.length) master[key] = unique(options);
+    if (options.length) master[key] = unique((master[key] || []).concat(options));
   });
   return master;
 }
@@ -636,8 +644,21 @@ function updateStoredUser(input) {
   if (input.isActive !== undefined) user.isActive = Boolean(input.isActive);
   if (input.password) user.passwordHash = hashStoredPassword(input.password);
   user.updatedAt = nowTimestamp();
+  ensureActiveAdmin(users);
   saveStoredUsers(users);
   return serializeStoredUser(user);
+}
+
+function deleteStoredUser(id) {
+  const users = getStoredUsers();
+  const normalizedId = String(id || "").trim();
+  if (!normalizedId) throw new Error("User ID is required");
+  const index = users.findIndex(function(item) { return String(item.id) === normalizedId; });
+  if (index === -1) throw new Error("User not found");
+  const removed = users.splice(index, 1)[0];
+  ensureActiveAdmin(users);
+  saveStoredUsers(users);
+  return { deleted: true, user: serializeStoredUser(removed) };
 }
 
 function seedStoredUsers(inputs) {
@@ -654,8 +675,16 @@ function seedStoredUsers(inputs) {
       updatedAt: nowTimestamp()
     };
   }) : [];
+  ensureActiveAdmin(users);
   saveStoredUsers(users);
   return { seeded: users.length };
+}
+
+function ensureActiveAdmin(users) {
+  const hasAdmin = users.some(function(user) {
+    return user.role === "admin" && user.isActive !== false;
+  });
+  if (!hasAdmin) throw new Error("At least one active admin is required");
 }
 
 function getStoredUsers() {
@@ -726,7 +755,247 @@ function setupSpreadsheetConfiguration() {
   sheet.getRange(1, 1, 1, ACTIVITY_HEADERS.length).setValues([ACTIVITY_HEADERS]);
   sheet.setFrozenRows(1);
   formatActivitiesSheet(sheet);
+  ensureReferenceSheets();
   return getStatus();
+}
+
+function ensureReferenceSheets() {
+  return {
+    masterData: ensureMasterDataSheet(),
+    departmentMapping: ensureDepartmentMappingSheet()
+  };
+}
+
+function addReferenceOption(input) {
+  const type = String(input.type || "").trim();
+  const value = trimString(input.value);
+  if (!type) throw new Error("Reference type is required");
+  if (!value) throw new Error("Reference value is required");
+  if (type === "department") {
+    return addMasterOption("department", value);
+  }
+  if (type === "area") {
+    const department = trimString(input.department);
+    if (!department) throw new Error("Department is required");
+    return addDepartmentArea(department, value);
+  }
+  throw new Error("Unsupported reference type");
+}
+
+function deleteReferenceOption(input) {
+  const type = String(input.type || "").trim();
+  const value = trimString(input.value);
+  if (!type) throw new Error("Reference type is required");
+  if (!value) throw new Error("Reference value is required");
+  if (type === "department") {
+    return {
+      deleted: deleteMasterOption("department", value),
+      mappingDeleted: deleteDepartmentMappings(value, "")
+    };
+  }
+  if (type === "area") {
+    const department = trimString(input.department);
+    if (!department) throw new Error("Department is required");
+    return { deleted: deleteDepartmentMappings(department, value) };
+  }
+  throw new Error("Unsupported reference type");
+}
+
+function addMasterOption(type, value) {
+  const sheet = getSpreadsheet().getSheetByName(SHEETS.MASTER);
+  if (!sheet) throw new Error("Master_Data sheet not found");
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function(item) { return String(item || "").trim(); });
+  const hasTypeValue = findHeaderIndex(headers, ["Type"]) !== -1 && findHeaderIndex(headers, ["Value"]) !== -1;
+  if (hasTypeValue) {
+    const typeCol = findHeaderIndex(headers, ["Type"]);
+    const valueCol = findHeaderIndex(headers, ["Value"]);
+    const exists = values.slice(1).some(function(row) {
+      return toCamelCase(row[typeCol]) === type && trimString(row[valueCol]) === value;
+    });
+    if (!exists) {
+      const row = new Array(headers.length).fill("");
+      row[typeCol] = type;
+      row[valueCol] = value;
+      sheet.appendRow(row);
+    }
+    return { saved: true, type: type, value: value };
+  }
+
+  const optionCol = findHeaderIndex(headers, [type, capitalizeReferenceType(type)]);
+  if (optionCol === -1) throw new Error(capitalizeReferenceType(type) + " column not found");
+  const exists = values.slice(1).some(function(row) { return trimString(row[optionCol]) === value; });
+  if (!exists) {
+    const row = new Array(headers.length).fill("");
+    row[optionCol] = value;
+    sheet.appendRow(row);
+  }
+  return { saved: true, type: type, value: value };
+}
+
+function deleteMasterOption(type, value) {
+  const sheet = getSpreadsheet().getSheetByName(SHEETS.MASTER);
+  if (!sheet) throw new Error("Master_Data sheet not found");
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function(item) { return String(item || "").trim(); });
+  const hasTypeValue = findHeaderIndex(headers, ["Type"]) !== -1 && findHeaderIndex(headers, ["Value"]) !== -1;
+  let deleted = 0;
+
+  if (hasTypeValue) {
+    const typeCol = findHeaderIndex(headers, ["Type"]);
+    const valueCol = findHeaderIndex(headers, ["Value"]);
+    for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
+      if (toCamelCase(values[rowIndex][typeCol]) === type && trimString(values[rowIndex][valueCol]) === value) {
+        sheet.deleteRow(rowIndex + 1);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
+  const optionCol = findHeaderIndex(headers, [type, capitalizeReferenceType(type)]);
+  if (optionCol === -1) throw new Error(capitalizeReferenceType(type) + " column not found");
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    if (trimString(values[rowIndex][optionCol]) === value) {
+      sheet.getRange(rowIndex + 1, optionCol + 1).clearContent();
+      deleted++;
+    }
+  }
+  return deleted;
+}
+
+function addDepartmentArea(department, area) {
+  const sheet = getSpreadsheet().getSheetByName(SHEETS.DEPARTMENTS);
+  if (!sheet) throw new Error("Department_Mapping sheet not found");
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function(item) { return String(item || "").trim(); });
+  const departmentCol = findHeaderIndex(headers, ["Department"]);
+  const areaCol = findHeaderIndex(headers, ["Area / Sub Department", "Area", "Sub Department"]);
+  if (departmentCol === -1 || areaCol === -1) throw new Error("Mapping columns not found");
+  const exists = values.slice(1).some(function(row) {
+    return trimString(row[departmentCol]) === department && trimString(row[areaCol]) === area;
+  });
+  if (!exists) {
+    const row = new Array(headers.length).fill("");
+    row[departmentCol] = department;
+    row[areaCol] = area;
+    sheet.appendRow(row);
+  }
+  return { saved: true, department: department, area: area };
+}
+
+function deleteDepartmentMappings(department, area) {
+  const sheet = getSpreadsheet().getSheetByName(SHEETS.DEPARTMENTS);
+  if (!sheet) throw new Error("Department_Mapping sheet not found");
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function(item) { return String(item || "").trim(); });
+  const departmentCol = findHeaderIndex(headers, ["Department"]);
+  const areaCol = findHeaderIndex(headers, ["Area / Sub Department", "Area", "Sub Department"]);
+  if (departmentCol === -1 || areaCol === -1) throw new Error("Mapping columns not found");
+  let deleted = 0;
+  for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
+    const sameDepartment = trimString(values[rowIndex][departmentCol]) === department;
+    const sameArea = !area || trimString(values[rowIndex][areaCol]) === area;
+    if (sameDepartment && sameArea) {
+      sheet.deleteRow(rowIndex + 1);
+      deleted++;
+    }
+  }
+  return deleted;
+}
+
+function capitalizeReferenceType(type) {
+  if (type === "department") return "Department";
+  return String(type || "").charAt(0).toUpperCase() + String(type || "").slice(1);
+}
+
+function ensureMasterDataSheet() {
+  const sheet = getSpreadsheet().getSheetByName(SHEETS.MASTER);
+  if (!sheet) return { skipped: true, reason: "Master_Data sheet not found" };
+  const values = sheet.getDataRange().getValues();
+  if (!values.length) return { skipped: true, reason: "Master_Data sheet is empty" };
+  const headers = values[0].map(function(value) { return String(value || "").trim(); });
+  const hasTypeValue = headers.indexOf("Type") !== -1 && headers.indexOf("Value") !== -1;
+  let appended = 0;
+
+  if (hasTypeValue) {
+    const typeCol = headers.indexOf("Type") + 1;
+    const valueCol = headers.indexOf("Value") + 1;
+    DEFAULT_MASTER.department.forEach(function(department) {
+      const exists = values.slice(1).some(function(row) {
+        return toCamelCase(row[typeCol - 1]) === "department" && trimString(row[valueCol - 1]) === department;
+      });
+      if (!exists) {
+        const row = new Array(headers.length).fill("");
+        row[typeCol - 1] = "department";
+        row[valueCol - 1] = department;
+        sheet.appendRow(row);
+        appended++;
+      }
+    });
+    return { appended: appended };
+  }
+
+  const departmentCol = findHeaderIndex(headers, ["Department", "department"]);
+  if (departmentCol === -1) return { skipped: true, reason: "Department column not found" };
+  const existing = values.slice(1).map(function(row) { return trimString(row[departmentCol]); });
+  DEFAULT_MASTER.department.forEach(function(department) {
+    if (existing.indexOf(department) !== -1) return;
+    const row = new Array(headers.length).fill("");
+    row[departmentCol] = department;
+    sheet.appendRow(row);
+    existing.push(department);
+    appended++;
+  });
+  return { appended: appended };
+}
+
+function ensureDepartmentMappingSheet() {
+  const sheet = getSpreadsheet().getSheetByName(SHEETS.DEPARTMENTS);
+  if (!sheet) return { skipped: true, reason: "Department_Mapping sheet not found" };
+  const values = sheet.getDataRange().getValues();
+  if (!values.length) return { skipped: true, reason: "Department_Mapping sheet is empty" };
+  const headers = values[0].map(function(value) { return String(value || "").trim(); });
+  const departmentCol = findHeaderIndex(headers, ["Department"]);
+  const areaCol = findHeaderIndex(headers, ["Area / Sub Department", "Area", "Sub Department"]);
+  if (departmentCol === -1 || areaCol === -1) return { skipped: true, reason: "Mapping columns not found" };
+  let appended = 0;
+
+  Object.keys(DEFAULT_DEPARTMENT_MAPPING).forEach(function(department) {
+    DEFAULT_DEPARTMENT_MAPPING[department].forEach(function(area) {
+      const exists = values.slice(1).some(function(row) {
+        return trimString(row[departmentCol]) === department && trimString(row[areaCol]) === area;
+      });
+      if (!exists) {
+        const row = new Array(headers.length).fill("");
+        row[departmentCol] = department;
+        row[areaCol] = area;
+        sheet.appendRow(row);
+        appended++;
+      }
+    });
+  });
+  return {
+    appended: appended,
+    removed: removeObsoleteDepartmentMappings(sheet, departmentCol, areaCol)
+  };
+}
+
+function removeObsoleteDepartmentMappings(sheet, departmentCol, areaCol) {
+  const values = sheet.getDataRange().getValues();
+  let removed = 0;
+  for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
+    const department = trimString(values[rowIndex][departmentCol]);
+    const area = trimString(values[rowIndex][areaCol]);
+    const shouldRemove = OBSOLETE_DEPARTMENT_MAPPINGS.some(function(item) {
+      return item.department === department && item.area === area;
+    });
+    if (shouldRemove) {
+      sheet.deleteRow(rowIndex + 1);
+      removed++;
+    }
+  }
+  return removed;
 }
 
 function setSpreadsheetTimeZone(timezone) {
@@ -759,9 +1028,14 @@ function cellByHeader(row, headers, names) {
 }
 
 function findHeaderIndex(headers, names) {
+  const normalizedHeaders = headers.map(function(header) {
+    return String(header || "").trim().toLowerCase();
+  });
   for (let i = 0; i < names.length; i++) {
     const index = headers.indexOf(names[i]);
     if (index !== -1) return index;
+    const normalizedIndex = normalizedHeaders.indexOf(String(names[i] || "").trim().toLowerCase());
+    if (normalizedIndex !== -1) return normalizedIndex;
   }
   return -1;
 }
@@ -781,6 +1055,6 @@ function unique(values) {
 function toCamelCase(value) {
   return String(value || "")
     .trim()
-    .replace(/[^a-zA-Z0-9]+(.)/g, function(match, chr) { return chr.toUpperCase(); })
-    .replace(/^[A-Z]/, function(chr) { return chr.toLowerCase(); });
+    .toLowerCase()
+    .replace(/[^a-z0-9]+([a-z0-9])/g, function(match, chr) { return chr.toUpperCase(); });
 }

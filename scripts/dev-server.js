@@ -4,6 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const root = process.cwd();
+loadLocalEnv();
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 3000);
 const mime = {
@@ -12,6 +13,22 @@ const mime = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8"
 };
+
+function loadLocalEnv() {
+  [".env.local", ".env"].forEach((fileName) => {
+    const file = path.join(root, fileName);
+    if (!fs.existsSync(file)) return;
+    fs.readFileSync(file, "utf8").split(/\r?\n/).forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) return;
+      const index = trimmed.indexOf("=");
+      if (index === -1) return;
+      const key = trimmed.slice(0, index).trim();
+      const value = trimmed.slice(index + 1).trim().replace(/^["']|["']$/g, "");
+      if (key && process.env[key] === undefined) process.env[key] = value;
+    });
+  });
+}
 const apiHandlers = {
   "/api/auth": require("../api/auth"),
   "/api/users": require("../api/users"),
@@ -19,7 +36,8 @@ const apiHandlers = {
   "/api/staff": require("../api/staff"),
   "/api/master": require("../api/master"),
   "/api/departments": require("../api/departments"),
-  "/api/activities": require("../api/activities")
+  "/api/activities": require("../api/activities"),
+  "/api/reference": require("../api/reference")
 };
 
 function createResponse(res) {
