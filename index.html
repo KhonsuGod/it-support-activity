@@ -160,6 +160,16 @@
           <label>Asset Name <input id="assetName" name="assetName" type="text" maxlength="160"></label>
           <label>Status <span>*</span><select id="status" name="status" required></select></label>
         </div>
+        <section class="batch-panel">
+          <label class="checkbox-line batch-toggle"><input id="batchRoutine" type="checkbox"> Batch routine check beberapa department</label>
+          <div class="batch-content hidden" id="batch-content">
+            <div class="batch-head">
+              <span>Department yang dicek</span>
+              <button class="secondary-button" type="button" id="add-batch-row">Tambah Department</button>
+            </div>
+            <div class="batch-rows" id="batch-rows"></div>
+          </div>
+        </section>
         <div class="problem-grid">
           <label>Problem <span>*</span><textarea id="problem" name="problem" rows="5" required placeholder="Printer Zebra ribbon tersangkut."></textarea></label>
           <label>Action Taken <span>*</span><textarea id="actionTaken" name="actionTaken" rows="5" required placeholder="Cek dan pasang ulang ribbon sampai printer bisa digunakan."></textarea></label>

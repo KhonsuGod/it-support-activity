@@ -77,7 +77,7 @@ const HEADER_TO_KEY = {
 const DEFAULT_MASTER = {
   plant: ["Tigaraksa (Bolang)", "Jatiuwung (Jati)"],
   shift: ["Morning", "Evening", "Night"],
-  department: ["HRD - GA", "GMO (IT)", "FINANCE", "ACCOUNTING", "MAINTENANCE", "SPAREPART", "MARKETING", "PURCHASING", "PRODUKSI", "QC", "QA", "PPIC", "RND", "WAREHOUSE", "PRINTING", "WORKSHOP", "HSE", "POS SECURITY"],
+  department: ["ALL DEPT", "HRD - GA", "GMO (IT)", "FINANCE", "ACCOUNTING", "MAINTENANCE", "SPAREPART", "MARKETING", "PURCHASING", "PRODUKSI", "QC", "QA", "PPIC", "RND", "WAREHOUSE", "PRINTING", "WORKSHOP", "HSE", "POS SECURITY"],
   activityType: ["Incident", "Service Request", "Preventive Maintenance", "Routine Check", "Installation / Setup", "Inventory", "Administration", "Other"],
   supportMode: ["On-Site", "Remote", "Hybrid", "N/A"],
   productionImpact: ["No Impact", "Low", "Medium", "High", "Production Stop"],
@@ -99,6 +99,7 @@ const DEFAULT_STAFF = [
 ];
 
 const DEFAULT_DEPARTMENT_MAPPING = {
+  "ALL DEPT": [],
   "HRD - GA": [],
   "GMO (IT)": [],
   "FINANCE": [],

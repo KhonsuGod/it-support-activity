@@ -16,6 +16,8 @@
   const FALLBACK_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQ5HEhd_JPr6HtGo0Knnf4thEHK2kOqME_aFQRygi7NtM1SR6wQzhAFIk5oIks_NjM7g/exec";
   const HARIS_WHATSAPP_NUMBER = "6285781220321";
   const MASTER_KEYS = ["shift", "plant", "department", "activityType", "supportMode", "productionImpact", "priority", "status", "deviceType", "category", "rootCauseCategory"];
+  const ROUTINE_PROBLEM = "Daily routine check beberapa department.";
+  const ROUTINE_ACTION = "Pengecekan kondisi PC, printer, network, dan device terkait.";
   const FILTER_FIELDS = [
     ["search", "Search", "search"],
     ["dateFrom", "Date From", "date"],
@@ -41,6 +43,7 @@
     authToken: localStorage.getItem("itActivityAuthToken") || "",
     currentUser: loadFilterPreference("itActivityCurrentUser"),
     adminUsers: [],
+    batchItems: [],
     charts: {},
     pendingDelete: null
   };
@@ -64,6 +67,7 @@
       "sync-state", "refresh-button", "metric-grid", "night-metric-grid", "night-top-department", "night-top-category",
       "my-alert-count", "my-alert-list", "team-alert-panel", "team-alert-count", "team-alert-list",
       "activity-form", "activity-id", "submit-button", "cancel-edit-button", "department", "area", "itStaff", "plant",
+      "batchRoutine", "batch-content", "batch-rows", "add-batch-row",
       "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "followUpTarget", "finishTarget", "notes", "activity-table-body", "empty-state",
       "report-table-body", "report-summary", "report-period", "toast", "confirm-dialog", "confirm-title", "confirm-message", "confirm-cancel", "confirm-ok",
       "dashboard-date-from", "dashboard-date-to", "dashboard-reset", "export-button", "print-button", "login-screen",
@@ -103,6 +107,8 @@
     els["activity-form"].addEventListener("submit", saveActivity);
     els["cancel-edit-button"].addEventListener("click", resetForm);
     els.department.addEventListener("change", () => populateAreaSelect(els.department.value, ""));
+    els.batchRoutine.addEventListener("change", () => setBatchRoutine(els.batchRoutine.checked));
+    els["add-batch-row"].addEventListener("click", () => addBatchItem());
     els.itStaff.addEventListener("change", fillPrimaryPlant);
     ["reportTime", "startTime", "finishTime"].forEach((id) => {
       els[id].addEventListener("input", updateDurationPreview);
@@ -320,7 +326,7 @@
     const defaults = {
       plant: ["Tigaraksa (Bolang)", "Jatiuwung (Jati)"],
       shift: ["Morning", "Evening", "Night"],
-      department: ["HRD - GA", "GMO (IT)", "FINANCE", "ACCOUNTING", "MAINTENANCE", "SPAREPART", "MARKETING", "PURCHASING", "PRODUKSI", "QC", "QA", "PPIC", "RND", "WAREHOUSE", "PRINTING", "WORKSHOP", "POS SECURITY"],
+      department: ["ALL DEPT", "HRD - GA", "GMO (IT)", "FINANCE", "ACCOUNTING", "MAINTENANCE", "SPAREPART", "MARKETING", "PURCHASING", "PRODUKSI", "QC", "QA", "PPIC", "RND", "WAREHOUSE", "PRINTING", "WORKSHOP", "HSE", "POS SECURITY"],
       activityType: ["Incident", "Service Request", "Preventive Maintenance", "Routine Check", "Installation / Setup", "Inventory", "Administration", "Other"],
       supportMode: ["On-Site", "Remote", "Hybrid", "N/A"],
       productionImpact: ["No Impact", "Low", "Medium", "High", "Production Stop"],
@@ -344,6 +350,7 @@
       if (el) populateSelect(el, state.master[key] || [], key === "deviceType" || key === "category" || key === "rootCauseCategory" || key === "productionImpact" || key === "priority" ? "Optional" : "Select");
     });
     populateAreaSelect(els.department.value, "");
+    renderBatchRows();
   }
 
   function applyDefaultFormValues() {
@@ -437,19 +444,22 @@
     event.preventDefault();
     const activity = formToActivity();
     const id = els["activity-id"].value;
-    const method = id ? "PUT" : "POST";
     const buttonText = els["submit-button"].textContent;
     els["submit-button"].disabled = true;
     els["submit-button"].textContent = "Menyimpan...";
     try {
-      const response = await fetch(API.activities, {
-        method,
-        headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
-        body: JSON.stringify(id ? Object.assign({ id }, activity) : activity)
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "Save failed");
-      showToast(id ? "Activity berhasil diperbarui." : "Activity tersimpan: " + payload.data.id);
+      const batchActivities = !id && els.batchRoutine.checked ? buildBatchActivities(activity) : null;
+      if (batchActivities) {
+        const ids = [];
+        for (const item of batchActivities) {
+          const saved = await persistActivity(item);
+          ids.push(saved.id);
+        }
+        showToast(ids.length + " activity routine check tersimpan.");
+      } else {
+        const saved = await persistActivity(activity, id);
+        showToast(id ? "Activity berhasil diperbarui." : "Activity tersimpan: " + saved.id);
+      }
       resetForm();
       await loadActivities(false);
       showView("activities");
@@ -459,6 +469,43 @@
       els["submit-button"].disabled = false;
       els["submit-button"].textContent = buttonText;
     }
+  }
+
+  async function persistActivity(activity, id) {
+    const response = await fetch(API.activities, {
+      method: id ? "PUT" : "POST",
+      headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
+      body: JSON.stringify(id ? Object.assign({ id }, activity) : activity)
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) throw new Error(payload.error || "Save failed");
+    return payload.data;
+  }
+
+  function buildBatchActivities(activity) {
+    const items = state.batchItems
+      .map((item) => ({
+        department: String(item.department || "").trim(),
+        area: String(item.area || "").trim(),
+        detail: String(item.detail || "").trim()
+      }))
+      .filter((item) => item.department);
+    if (!items.length) {
+      throw new Error("Batch routine check belum punya department.");
+    }
+    return items.map((item, index) => {
+      const label = item.department + (item.area ? " / " + item.area : "");
+      const detail = item.detail ? label + ": " + item.detail : label;
+      return Object.assign({}, activity, {
+        department: item.department,
+        area: item.area,
+        activityType: activity.activityType || "Routine Check",
+        category: activity.category || "Preventive Maintenance",
+        assetName: activity.assetName || "Daily Routine Check",
+        problem: appendLine(activity.problem, "Check " + detail),
+        notes: appendLine(activity.notes, "Batch Routine Check #" + (index + 1) + ": " + label)
+      });
+    });
   }
 
   function formToActivity() {
@@ -481,6 +528,10 @@
     els["activity-id"].value = "";
     els["submit-button"].textContent = "Simpan Activity";
     document.getElementById("form-title").textContent = "Input Activity";
+    state.batchItems = [];
+    els.batchRoutine.checked = false;
+    els["batch-content"].classList.add("hidden");
+    renderBatchRows();
     setDefaultDate();
     populateAreaSelect("", "");
     applyDefaultFormValues();
@@ -501,9 +552,82 @@
     els.notes.value = noteMeta.cleanNotes;
     els.followUpTarget.value = noteMeta.followUpTarget;
     els.finishTarget.value = noteMeta.finishTarget;
+    state.batchItems = [];
+    els.batchRoutine.checked = false;
+    els["batch-content"].classList.add("hidden");
+    renderBatchRows();
     populateAreaSelect(activity.department, activity.area);
     els["submit-button"].textContent = "Update Activity";
     updateDurationPreview();
+  }
+
+  function setBatchRoutine(enabled) {
+    els["batch-content"].classList.toggle("hidden", !enabled);
+    if (!enabled) return;
+    if (!state.batchItems.length) addBatchItem(false);
+    setSelectDefault("department", "ALL DEPT");
+    populateAreaSelect("ALL DEPT", "");
+    setSelectDefault("activityType", "Routine Check");
+    setSelectDefault("category", "Preventive Maintenance");
+    setSelectDefault("supportMode", "On-Site");
+    setSelectDefault("status", "Resolved");
+    if (!document.getElementById("problem").value.trim()) document.getElementById("problem").value = ROUTINE_PROBLEM;
+    if (!document.getElementById("actionTaken").value.trim()) document.getElementById("actionTaken").value = ROUTINE_ACTION;
+    renderBatchRows();
+  }
+
+  function addBatchItem(render) {
+    state.batchItems.push({ department: "", area: "", detail: "" });
+    if (render !== false) renderBatchRows();
+  }
+
+  function removeBatchItem(index) {
+    state.batchItems.splice(index, 1);
+    renderBatchRows();
+  }
+
+  function renderBatchRows() {
+    if (!els["batch-rows"]) return;
+    removeChildren(els["batch-rows"]);
+    state.batchItems.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = "batch-row";
+
+      const department = document.createElement("select");
+      populateSelect(department, state.master.department || [], "Department");
+      department.value = item.department;
+      department.addEventListener("change", () => {
+        state.batchItems[index].department = department.value;
+        state.batchItems[index].area = "";
+        renderBatchRows();
+      });
+
+      const area = document.createElement("select");
+      const areas = state.departments[item.department] || [];
+      populateSelect(area, areas, areas.length ? "Area" : "Optional");
+      area.disabled = areas.length === 0;
+      area.value = areas.includes(item.area) ? item.area : "";
+      area.addEventListener("change", () => {
+        state.batchItems[index].area = area.value;
+      });
+
+      const detail = document.createElement("input");
+      detail.type = "text";
+      detail.placeholder = "Yang dicek / temuan singkat";
+      detail.value = item.detail;
+      detail.addEventListener("input", () => {
+        state.batchItems[index].detail = detail.value;
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "secondary-button";
+      remove.textContent = "Hapus";
+      remove.addEventListener("click", () => removeBatchItem(index));
+
+      row.append(department, area, detail, remove);
+      els["batch-rows"].appendChild(row);
+    });
   }
 
   function confirmDelete(id, type) {
@@ -1300,6 +1424,13 @@
   function formatTimes(item) {
     const times = [item.reportTime, item.startTime, item.finishTime].filter(Boolean).join(" / ");
     return (times ? times + " WIB" : "") + (item.responseTime || item.resolutionTime ? " | R " + (item.responseTime || "-") + " / " + (item.resolutionTime || "-") : "");
+  }
+
+  function appendLine(text, line) {
+    const base = String(text || "").trim();
+    const next = String(line || "").trim();
+    if (!next) return base;
+    return base ? base + "\n" + next : next;
   }
 
   function composeNotes(notes, meta) {

@@ -86,10 +86,12 @@ async function get(action) {
   assert.deepEqual(master.shift, ["Morning", "Evening", "Night"]);
   assert.equal(master.plant.includes("Tigaraksa (Bolang)"), true);
   assert.equal(master.plant.includes("Jatiuwung (Jati)"), true);
+  assert.equal(master.department.includes("ALL DEPT"), true);
   assert.equal(master.department.includes("HSE"), true);
   assert.equal(master.department.includes("POS SECURITY"), true);
 
   const departments = await get("departments");
+  assert.deepEqual(departments["ALL DEPT"], []);
   assert.deepEqual(departments.PRODUKSI, ["EXTRUDER", "CRUSHER", "BARCODE", "PROSES 1", "PROSES 2", "ADMIN", "PM", "PM1", "PM2", "ADMIN CMS"]);
   assert.deepEqual(departments.WAREHOUSE, ["WH SCAN IN", "WH SCAN OUT", "BAHAN BAKU", "OFFICE WAREHOUSE"]);
 

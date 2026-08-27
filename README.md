@@ -25,6 +25,7 @@ Activity read/write dari browser melewati Vercel API. Secret hanya disimpan di s
 
 - Dashboard memakai data real dari spreadsheet.
 - Pending/In Progress notification menampilkan pekerjaan terbuka milik staff. Admin melihat pekerjaan terbuka seluruh team.
+- Input activity mendukung `ALL DEPT` dan batch routine check beberapa department. Batch akan membuat beberapa activity row terpisah agar analytics per department tetap akurat.
 - Target follow-up dan target selesai diinput dari form detail dan disimpan di kolom `Notes` dengan format terstruktur agar schema `Activities` tetap kompatibel.
 - Activity dapat dishare langsung ke WhatsApp Haris PIC via tombol `WA`; pesan berisi ringkasan pekerjaan dan link activity. Link tetap membutuhkan login.
 - Admin dapat mengelola user serta menambah/menghapus department dan area dropdown dari halaman Admin.
