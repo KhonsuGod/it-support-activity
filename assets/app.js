@@ -18,6 +18,7 @@
   const MASTER_KEYS = ["shift", "plant", "department", "activityType", "supportMode", "productionImpact", "priority", "status", "deviceType", "category", "rootCauseCategory"];
   const ROUTINE_PROBLEM = "Daily routine check beberapa department.";
   const ROUTINE_ACTION = "Pengecekan kondisi PC, printer, network, dan device terkait.";
+  const BATCH_HIDDEN_REQUIRED_FIELDS = ["date", "itStaff", "shift", "plant", "activityType", "supportMode", "status", "problem", "actionTaken"];
   const FILTER_FIELDS = [
     ["search", "Search", "search"],
     ["dateFrom", "Date From", "date"],
@@ -68,6 +69,7 @@
       "my-alert-count", "my-alert-list", "team-alert-panel", "team-alert-count", "team-alert-list",
       "activity-form", "activity-id", "submit-button", "cancel-edit-button", "department", "area", "itStaff", "plant",
       "batchRoutine", "batch-content", "batch-rows", "add-batch-row",
+      "batch-submit-button", "advanced-fields", "form-actions",
       "batchDate", "batchReportTime", "batchStartTime", "batchMinutesPerItem", "batchProblem", "batchActionTaken",
       "problem-grid", "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "followUpTarget", "finishTarget", "notes", "activity-table-body", "empty-state",
       "report-table-body", "report-summary", "report-period", "toast", "confirm-dialog", "confirm-title", "confirm-message", "confirm-cancel", "confirm-ok",
@@ -454,8 +456,11 @@
     const activity = formToActivity();
     const id = els["activity-id"].value;
     const buttonText = els["submit-button"].textContent;
+    const batchButtonText = els["batch-submit-button"].textContent;
     els["submit-button"].disabled = true;
+    els["batch-submit-button"].disabled = true;
     els["submit-button"].textContent = "Menyimpan...";
+    els["batch-submit-button"].textContent = "Menyimpan...";
     try {
       const batchActivities = !id && els.batchRoutine.checked ? buildBatchActivities(activity) : null;
       if (batchActivities) {
@@ -476,7 +481,9 @@
       showToast(error.message, true);
     } finally {
       els["submit-button"].disabled = false;
+      els["batch-submit-button"].disabled = false;
       els["submit-button"].textContent = buttonText;
+      els["batch-submit-button"].textContent = batchButtonText;
     }
   }
 
@@ -493,6 +500,10 @@
 
   function buildBatchActivities(activity) {
     ["batchReportTime", "batchStartTime"].forEach(normalizeTimeInput);
+    const baseDate = els.batchDate.value || activity.date;
+    if (!baseDate) {
+      throw new Error("Date batch wajib diisi.");
+    }
     const minutesPerItem = Number(els.batchMinutesPerItem.value || 5);
     if (!Number.isFinite(minutesPerItem) || minutesPerItem < 1) {
       throw new Error("Menit per item wajib minimal 1.");
@@ -522,11 +533,18 @@
       const label = item.department + (item.area ? " / " + item.area : "");
       const detail = item.detail ? label + ": " + item.detail : label;
       const duration = item.qty * minutesPerItem;
+      const finishCursor = cursor + duration;
+      const startDayOffset = Math.floor(cursor / (24 * 60));
+      const finishDayOffset = Math.floor(finishCursor / (24 * 60));
+      const activityDate = addDaysToDateInput(baseDate, startDayOffset);
+      const finishDate = addDaysToDateInput(baseDate, finishDayOffset);
       const startTime = formatClock(cursor);
-      const finishTime = formatClock(cursor + duration);
-      cursor += duration;
+      const finishTime = formatClock(finishCursor);
+      const reportTime = startDayOffset > 0 ? startTime : (els.batchReportTime.value || activity.reportTime || startTime);
+      const timingNote = "Waktu batch: " + displayDate(activityDate) + " " + startTime + " - " + displayDate(finishDate) + " " + finishTime + " WIB";
+      cursor = finishCursor;
       return Object.assign({}, activity, {
-        date: els.batchDate.value || activity.date,
+        date: activityDate,
         department: item.department,
         area: item.area,
         activityType: "Routine Check",
@@ -534,10 +552,10 @@
         assetName: activity.assetName || "Daily Routine Check",
         problem: appendLine(batchProblem, "Check " + detail),
         actionTaken: appendLine(batchAction, item.qty + " item x " + minutesPerItem + " menit"),
-        reportTime: els.batchReportTime.value || activity.reportTime || startTime,
+        reportTime,
         startTime,
         finishTime,
-        notes: appendLine(activity.notes, "Batch Routine Check #" + (index + 1) + ": " + label + " | Qty " + item.qty + " | Durasi " + duration + " menit")
+        notes: appendLine(activity.notes, "Batch Routine Check #" + (index + 1) + ": " + label + " | Qty " + item.qty + " | Durasi " + duration + " menit | " + timingNote)
       });
     });
   }
@@ -567,6 +585,9 @@
     resetBatchDefaults();
     els["batch-content"].classList.add("hidden");
     els["problem-grid"].classList.remove("hidden");
+    els["advanced-fields"].classList.remove("hidden");
+    els["form-actions"].classList.remove("hidden");
+    setBatchHiddenRequired(false);
     renderBatchRows();
     setDefaultDate();
     populateAreaSelect("", "");
@@ -592,6 +613,9 @@
     els.batchRoutine.checked = false;
     els["batch-content"].classList.add("hidden");
     els["problem-grid"].classList.remove("hidden");
+    els["advanced-fields"].classList.remove("hidden");
+    els["form-actions"].classList.remove("hidden");
+    setBatchHiddenRequired(false);
     renderBatchRows();
     populateAreaSelect(activity.department, activity.area);
     els["submit-button"].textContent = "Update Activity";
@@ -601,6 +625,9 @@
   function setBatchRoutine(enabled) {
     els["batch-content"].classList.toggle("hidden", !enabled);
     els["problem-grid"].classList.toggle("hidden", enabled);
+    els["advanced-fields"].classList.toggle("hidden", enabled);
+    els["form-actions"].classList.toggle("hidden", enabled);
+    setBatchHiddenRequired(enabled);
     if (!enabled) return;
     if (!state.batchItems.length) addBatchItem(false);
     setBatchDefaultsFromForm();
@@ -614,6 +641,24 @@
     if (!document.getElementById("actionTaken").value.trim()) document.getElementById("actionTaken").value = ROUTINE_ACTION;
     syncBatchDefaults();
     renderBatchRows();
+  }
+
+  function setBatchHiddenRequired(isBatchMode) {
+    BATCH_HIDDEN_REQUIRED_FIELDS.forEach((id) => {
+      const input = document.getElementById(id);
+      if (!input) return;
+      if (isBatchMode) {
+        if (!Object.prototype.hasOwnProperty.call(input.dataset, "wasRequired")) {
+          input.dataset.wasRequired = input.required ? "1" : "";
+        }
+        input.required = false;
+      } else if (input.dataset.wasRequired === "1") {
+        input.required = true;
+        delete input.dataset.wasRequired;
+      } else {
+        delete input.dataset.wasRequired;
+      }
+    });
   }
 
   function addBatchItem(render) {
@@ -656,8 +701,9 @@
       qty.min = "1";
       qty.max = "999";
       qty.value = item.qty || 1;
-      qty.title = "Jumlah item / PC";
-      qty.setAttribute("aria-label", "Jumlah item atau PC");
+      qty.placeholder = "Qty";
+      qty.title = "Jumlah PC atau device yang dicek";
+      qty.setAttribute("aria-label", "Jumlah PC atau device yang dicek");
       qty.addEventListener("input", () => {
         state.batchItems[index].qty = positiveNumber(qty.value, 1);
       });
@@ -995,6 +1041,18 @@
     const hours = Math.floor(normalized / 60);
     const minutes = normalized % 60;
     return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
+  }
+
+  function addDaysToDateInput(value, days) {
+    const normalized = normalizeDateInput(value);
+    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return normalized;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    date.setDate(date.getDate() + Number(days || 0));
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
   }
 
   function formatDuration(totalMinutes) {
