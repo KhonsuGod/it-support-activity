@@ -68,7 +68,8 @@
       "my-alert-count", "my-alert-list", "team-alert-panel", "team-alert-count", "team-alert-list",
       "activity-form", "activity-id", "submit-button", "cancel-edit-button", "department", "area", "itStaff", "plant",
       "batchRoutine", "batch-content", "batch-rows", "add-batch-row",
-      "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "followUpTarget", "finishTarget", "notes", "activity-table-body", "empty-state",
+      "batchDate", "batchReportTime", "batchStartTime", "batchMinutesPerItem", "batchProblem", "batchActionTaken",
+      "problem-grid", "reportTime", "startTime", "finishTime", "responseTime", "resolutionTime", "followUpTarget", "finishTarget", "notes", "activity-table-body", "empty-state",
       "report-table-body", "report-summary", "report-period", "toast", "confirm-dialog", "confirm-title", "confirm-message", "confirm-cancel", "confirm-ok",
       "dashboard-date-from", "dashboard-date-to", "dashboard-reset", "export-button", "print-button", "login-screen",
       "login-form", "login-username", "login-password", "login-button", "login-error", "menu-toggle", "menu-panel",
@@ -109,6 +110,10 @@
     els.department.addEventListener("change", () => populateAreaSelect(els.department.value, ""));
     els.batchRoutine.addEventListener("change", () => setBatchRoutine(els.batchRoutine.checked));
     els["add-batch-row"].addEventListener("click", () => addBatchItem());
+    ["batchDate", "batchReportTime", "batchStartTime", "batchMinutesPerItem", "batchProblem", "batchActionTaken"].forEach((id) => {
+      els[id].addEventListener("input", syncBatchDefaults);
+      els[id].addEventListener("change", syncBatchDefaults);
+    });
     els.itStaff.addEventListener("change", fillPrimaryPlant);
     ["reportTime", "startTime", "finishTime"].forEach((id) => {
       els[id].addEventListener("input", updateDurationPreview);
@@ -387,6 +392,10 @@
     if (input && !input.value) input.value = jakartaTimeInput(new Date());
   }
 
+  function currentTimeWib() {
+    return jakartaTimeInput(new Date());
+  }
+
   function currentShiftWib() {
     const hour = Number(jakartaTimeInput(new Date()).slice(0, 2));
     if (hour >= 6 && hour < 14) return "Morning";
@@ -483,27 +492,52 @@
   }
 
   function buildBatchActivities(activity) {
+    ["batchReportTime", "batchStartTime"].forEach(normalizeTimeInput);
+    const minutesPerItem = Number(els.batchMinutesPerItem.value || 5);
+    if (!Number.isFinite(minutesPerItem) || minutesPerItem < 1) {
+      throw new Error("Menit per item wajib minimal 1.");
+    }
+    const batchStartMinutes = parseTime(els.batchStartTime.value || activity.startTime);
+    if (batchStartMinutes === null) {
+      throw new Error("Start Time WIB batch belum valid.");
+    }
+    const batchProblem = els.batchProblem.value.trim() || activity.problem;
+    const batchAction = els.batchActionTaken.value.trim() || activity.actionTaken;
+    if (!batchProblem || !batchAction) {
+      throw new Error("Problem dan Action Taken batch wajib diisi.");
+    }
     const items = state.batchItems
       .map((item) => ({
         department: String(item.department || "").trim(),
         area: String(item.area || "").trim(),
+        qty: positiveNumber(item.qty, 1),
         detail: String(item.detail || "").trim()
       }))
       .filter((item) => item.department);
     if (!items.length) {
       throw new Error("Batch routine check belum punya department.");
     }
+    let cursor = batchStartMinutes;
     return items.map((item, index) => {
       const label = item.department + (item.area ? " / " + item.area : "");
       const detail = item.detail ? label + ": " + item.detail : label;
+      const duration = item.qty * minutesPerItem;
+      const startTime = formatClock(cursor);
+      const finishTime = formatClock(cursor + duration);
+      cursor += duration;
       return Object.assign({}, activity, {
+        date: els.batchDate.value || activity.date,
         department: item.department,
         area: item.area,
-        activityType: activity.activityType || "Routine Check",
+        activityType: "Routine Check",
         category: activity.category || "Preventive Maintenance",
         assetName: activity.assetName || "Daily Routine Check",
-        problem: appendLine(activity.problem, "Check " + detail),
-        notes: appendLine(activity.notes, "Batch Routine Check #" + (index + 1) + ": " + label)
+        problem: appendLine(batchProblem, "Check " + detail),
+        actionTaken: appendLine(batchAction, item.qty + " item x " + minutesPerItem + " menit"),
+        reportTime: els.batchReportTime.value || activity.reportTime || startTime,
+        startTime,
+        finishTime,
+        notes: appendLine(activity.notes, "Batch Routine Check #" + (index + 1) + ": " + label + " | Qty " + item.qty + " | Durasi " + duration + " menit")
       });
     });
   }
@@ -530,7 +564,9 @@
     document.getElementById("form-title").textContent = "Input Activity";
     state.batchItems = [];
     els.batchRoutine.checked = false;
+    resetBatchDefaults();
     els["batch-content"].classList.add("hidden");
+    els["problem-grid"].classList.remove("hidden");
     renderBatchRows();
     setDefaultDate();
     populateAreaSelect("", "");
@@ -555,6 +591,7 @@
     state.batchItems = [];
     els.batchRoutine.checked = false;
     els["batch-content"].classList.add("hidden");
+    els["problem-grid"].classList.remove("hidden");
     renderBatchRows();
     populateAreaSelect(activity.department, activity.area);
     els["submit-button"].textContent = "Update Activity";
@@ -563,8 +600,10 @@
 
   function setBatchRoutine(enabled) {
     els["batch-content"].classList.toggle("hidden", !enabled);
+    els["problem-grid"].classList.toggle("hidden", enabled);
     if (!enabled) return;
     if (!state.batchItems.length) addBatchItem(false);
+    setBatchDefaultsFromForm();
     setSelectDefault("department", "ALL DEPT");
     populateAreaSelect("ALL DEPT", "");
     setSelectDefault("activityType", "Routine Check");
@@ -573,11 +612,12 @@
     setSelectDefault("status", "Resolved");
     if (!document.getElementById("problem").value.trim()) document.getElementById("problem").value = ROUTINE_PROBLEM;
     if (!document.getElementById("actionTaken").value.trim()) document.getElementById("actionTaken").value = ROUTINE_ACTION;
+    syncBatchDefaults();
     renderBatchRows();
   }
 
   function addBatchItem(render) {
-    state.batchItems.push({ department: "", area: "", detail: "" });
+    state.batchItems.push({ department: "", area: "", qty: 1, detail: "" });
     if (render !== false) renderBatchRows();
   }
 
@@ -611,6 +651,17 @@
         state.batchItems[index].area = area.value;
       });
 
+      const qty = document.createElement("input");
+      qty.type = "number";
+      qty.min = "1";
+      qty.max = "999";
+      qty.value = item.qty || 1;
+      qty.title = "Jumlah item / PC";
+      qty.setAttribute("aria-label", "Jumlah item atau PC");
+      qty.addEventListener("input", () => {
+        state.batchItems[index].qty = positiveNumber(qty.value, 1);
+      });
+
       const detail = document.createElement("input");
       detail.type = "text";
       detail.placeholder = "Yang dicek / temuan singkat";
@@ -625,9 +676,35 @@
       remove.textContent = "Hapus";
       remove.addEventListener("click", () => removeBatchItem(index));
 
-      row.append(department, area, detail, remove);
+      row.append(department, area, qty, detail, remove);
       els["batch-rows"].appendChild(row);
     });
+  }
+
+  function setBatchDefaultsFromForm() {
+    els.batchDate.value = els.batchDate.value || document.getElementById("date").value || jakartaDateInput(new Date());
+    els.batchReportTime.value = els.batchReportTime.value || els.reportTime.value || currentTimeWib();
+    els.batchStartTime.value = els.batchStartTime.value || els.startTime.value || currentTimeWib();
+    els.batchMinutesPerItem.value = els.batchMinutesPerItem.value || "5";
+    els.batchProblem.value = els.batchProblem.value || document.getElementById("problem").value.trim() || ROUTINE_PROBLEM;
+    els.batchActionTaken.value = els.batchActionTaken.value || document.getElementById("actionTaken").value.trim() || ROUTINE_ACTION;
+  }
+
+  function resetBatchDefaults() {
+    ["batchDate", "batchReportTime", "batchStartTime", "batchProblem", "batchActionTaken"].forEach((id) => {
+      if (els[id]) els[id].value = "";
+    });
+    if (els.batchMinutesPerItem) els.batchMinutesPerItem.value = "5";
+  }
+
+  function syncBatchDefaults() {
+    if (!els.batchRoutine.checked) return;
+    if (els.batchDate.value) document.getElementById("date").value = els.batchDate.value;
+    if (els.batchReportTime.value) els.reportTime.value = els.batchReportTime.value;
+    if (els.batchStartTime.value) els.startTime.value = els.batchStartTime.value;
+    if (els.batchProblem.value.trim()) document.getElementById("problem").value = els.batchProblem.value.trim();
+    if (els.batchActionTaken.value.trim()) document.getElementById("actionTaken").value = els.batchActionTaken.value.trim();
+    updateDurationPreview();
   }
 
   function confirmDelete(id, type) {
@@ -911,6 +988,13 @@
     const minutes = Number(match[2]);
     if (hours > 23 || minutes > 59) return null;
     return hours * 60 + minutes;
+  }
+
+  function formatClock(totalMinutes) {
+    const normalized = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const hours = Math.floor(normalized / 60);
+    const minutes = normalized % 60;
+    return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
   }
 
   function formatDuration(totalMinutes) {
@@ -1431,6 +1515,11 @@
     const next = String(line || "").trim();
     if (!next) return base;
     return base ? base + "\n" + next : next;
+  }
+
+  function positiveNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : fallback;
   }
 
   function composeNotes(notes, meta) {

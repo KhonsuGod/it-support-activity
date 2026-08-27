@@ -648,6 +648,17 @@ label span {
   margin-top: 12px;
 }
 
+.batch-defaults {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.batch-defaults label:nth-last-child(-n + 2) {
+  grid-column: span 2;
+}
+
 .batch-head {
   display: flex;
   align-items: center;
@@ -670,7 +681,7 @@ label span {
 
 .batch-row {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(150px, 1fr) minmax(220px, 1.4fr) auto;
+  grid-template-columns: minmax(160px, 1fr) minmax(150px, 1fr) 90px minmax(220px, 1.4fr) auto;
   gap: 8px;
   align-items: center;
 }
@@ -1167,6 +1178,7 @@ textarea:focus {
 
   .form-grid,
   .quick-grid,
+  .batch-defaults,
   .batch-row,
   .problem-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1209,11 +1221,16 @@ textarea:focus {
   .master-admin-grid,
   .form-grid,
   .quick-grid,
+  .batch-defaults,
   .batch-row,
   .problem-grid,
   .filter-bar,
   .report-summary {
     grid-template-columns: 1fr;
+  }
+
+  .batch-defaults label:nth-last-child(-n + 2) {
+    grid-column: auto;
   }
 
   .night-insights div + div {
