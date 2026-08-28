@@ -334,13 +334,13 @@
       plant: ["Tigaraksa (Bolang)", "Jatiuwung (Jati)"],
       shift: ["Morning", "Evening", "Night"],
       department: ["ALL DEPT", "HRD - GA", "GMO (IT)", "FINANCE", "ACCOUNTING", "MAINTENANCE", "SPAREPART", "MARKETING", "PURCHASING", "PRODUKSI", "QC", "QA", "PPIC", "RND", "WAREHOUSE", "PRINTING", "WORKSHOP", "HSE", "POS SECURITY"],
-      activityType: ["Incident", "Service Request", "Preventive Maintenance", "Routine Check", "Installation / Setup", "Inventory", "Administration", "Other"],
+      activityType: ["Incident", "Service Request", "Preventive Maintenance", "Routine Check", "Installation / Setup", "Inventory", "Administration", "Refill Toner", "Service Toner", "Service Printer", "Cleaning Printer", "Pickup Broken Device", "Other"],
       supportMode: ["On-Site", "Remote", "Hybrid", "N/A"],
       productionImpact: ["No Impact", "Low", "Medium", "High", "Production Stop"],
       priority: ["Low", "Medium", "High", "Critical"],
       status: ["Resolved", "In Progress", "Pending"],
-      deviceType: ["PC", "Laptop", "Printer", "Label Printer", "Scanner", "Barcode Scanner", "Monitor", "Network Device", "Server", "CCTV", "Access Point", "Switch", "Router", "Peripheral", "Software / Application", "Other"],
-      category: ["PC / Laptop", "Printer", "Network", "Scanner / Barcode", "Software / Application", "Server", "CCTV", "Account / User", "Peripheral", "Preventive Maintenance", "Inventory", "Other"],
+      deviceType: ["PC", "Laptop", "Printer", "Printer Zebra", "Printer Canon", "Printer Epson", "Label Printer", "Scanner", "Barcode Scanner", "Monitor", "Network Device", "Server", "CCTV", "Access Point", "Switch", "Router", "Peripheral", "Toner Cartridge", "Software / Application", "Other"],
+      category: ["PC / Laptop", "Printer", "Printer Service", "Toner", "Network", "Scanner / Barcode", "Software / Application", "Server", "CCTV", "Account / User", "Peripheral", "Preventive Maintenance", "Inventory", "Broken Device", "Other"],
       rootCauseCategory: ["Hardware", "Software", "Network", "Configuration", "Consumable", "User Operation", "Power", "Infrastructure", "Unknown", "Other"]
     };
     const normalized = Object.assign({}, defaults);

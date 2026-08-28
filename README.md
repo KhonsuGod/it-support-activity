@@ -173,7 +173,7 @@ Vercel API:
 - `GET /api/master`
 - `GET /api/departments`
 - `POST /api/reference` admin only
-- `DELETE /api/reference?type={department|area}&value={value}&department={department}` admin only
+- `DELETE /api/reference?type={department|area|activityType|deviceType|category|supportMode|productionImpact|priority|status|rootCauseCategory}&value={value}&department={department}` admin only
 - `GET /api/activities`
 - `POST /api/activities`
 - `PUT /api/activities`

@@ -1,6 +1,19 @@
 const { requireAdmin } = require("./_auth");
 const { callScriptPost, readBody, sendJson } = require("./_google");
 
+const REFERENCE_TYPES = new Set([
+  "department",
+  "area",
+  "activityType",
+  "deviceType",
+  "category",
+  "supportMode",
+  "productionImpact",
+  "priority",
+  "status",
+  "rootCauseCategory"
+]);
+
 module.exports = async function handler(req, res) {
   try {
     requireAdmin(req);
@@ -23,7 +36,7 @@ function normalizeOption(body) {
   const type = String(body.type || "").trim();
   const value = String(body.value || "").trim();
   const department = String(body.department || "").trim();
-  if (type !== "department" && type !== "area") throw badRequest("Reference type must be department or area");
+  if (!REFERENCE_TYPES.has(type)) throw badRequest("Unsupported reference type");
   if (!value) throw badRequest("Reference value is required");
   if (type === "area" && !department) throw badRequest("Department is required");
   return { type, value, department };

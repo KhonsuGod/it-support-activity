@@ -21,10 +21,20 @@ function durationBetween(start, finish) {
 }
 
 async function get(action) {
-  const response = await fetch(`${SCRIPT_URL}?action=${encodeURIComponent(action)}`);
-  const payload = await response.json();
-  assert.equal(payload.success, true, `${action} should return success`);
-  return payload.data;
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(`${SCRIPT_URL}?action=${encodeURIComponent(action)}`);
+      const text = await response.text();
+      const payload = JSON.parse(text);
+      assert.equal(payload.success, true, `${action} should return success`);
+      return payload.data;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 (async () => {
@@ -89,6 +99,18 @@ async function get(action) {
   assert.equal(master.department.includes("ALL DEPT"), true);
   assert.equal(master.department.includes("HSE"), true);
   assert.equal(master.department.includes("POS SECURITY"), true);
+  assert.equal(master.activityType.includes("Refill Toner"), true);
+  assert.equal(master.activityType.includes("Service Toner"), true);
+  assert.equal(master.activityType.includes("Service Printer"), true);
+  assert.equal(master.activityType.includes("Cleaning Printer"), true);
+  assert.equal(master.activityType.includes("Pickup Broken Device"), true);
+  assert.equal(master.deviceType.includes("Printer Zebra"), true);
+  assert.equal(master.deviceType.includes("Printer Canon"), true);
+  assert.equal(master.deviceType.includes("Printer Epson"), true);
+  assert.equal(master.deviceType.includes("Toner Cartridge"), true);
+  assert.equal(master.category.includes("Printer Service"), true);
+  assert.equal(master.category.includes("Toner"), true);
+  assert.equal(master.category.includes("Broken Device"), true);
 
   const departments = await get("departments");
   assert.deepEqual(departments["ALL DEPT"], []);
